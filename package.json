@@ -1,0 +1,33 @@
+{
+  "name": "community-titler",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Beautiful, animated lower-third titles with transparent alpha backgrounds for community media stations. Batch-create from a spreadsheet; export ProRes 4444, WebM, or PNG for OBS and key/fill playout.",
+  "license": "MIT",
+  "scripts": {
+    "predev": "node scripts/copy-ffmpeg.mjs",
+    "dev": "vite",
+    "prebuild": "node scripts/copy-ffmpeg.mjs",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "render": "node scripts/render.mjs"
+  },
+  "dependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2",
+    "@napi-rs/canvas": "^0.1.65",
+    "fflate": "^0.8.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+  },
+  "devDependencies": {
+    "@ffmpeg/core": "^0.12.10",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "~5.6.3",
+    "vite": "^5.4.11"
+  }
+}

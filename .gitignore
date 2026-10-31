@@ -1,0 +1,16 @@
+# deps / build
+node_modules/
+dist/
+
+# ffmpeg.wasm core is copied from node_modules at dev/build time
+public/ffmpeg/
+
+# rendered output
+exports/
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# logs
+*.log
