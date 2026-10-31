@@ -5,6 +5,12 @@
 //
 // Everything is a deterministic function of time `t` (seconds) across the
 // timeline: [animate in][hold][animate out].
+//
+// Design language: skewed parallelogram panels with elements that break out of
+// the main shape — an accent "blade" floating off the left edge, a station tab
+// and badge chip jutting over the top, and brand-stripe tails streaking past
+// the right edge. Themes with shape.style 'rounded' keep rectangular panels
+// but share the same layered geometry.
 
 /** @typedef {{id?:string,type:'show'|'speaker'|'article',badge:string,primary:string,secondary:string}} TitleItem */
 
@@ -22,6 +28,19 @@ function ph(p, d0, dur, ease = easeOutQuint) {
 
 // ---------------------------------------------------------------- helpers ---
 
+/**
+ * Parallelogram path. `x` is the BOTTOM-left corner, `y` the top edge;
+ * the top edge is shifted right by `s` (the lean).
+ */
+function paraPath(ctx, x, y, w, h, s) {
+  ctx.beginPath();
+  ctx.moveTo(x + s, y);
+  ctx.lineTo(x + s + w, y);
+  ctx.lineTo(x + w, y + h);
+  ctx.lineTo(x, y + h);
+  ctx.closePath();
+}
+
 function roundRectPath(ctx, x, y, w, h, r) {
   const rr = Math.max(0, Math.min(r, w / 2, h / 2));
   ctx.beginPath();
@@ -31,6 +50,19 @@ function roundRectPath(ctx, x, y, w, h, r) {
   ctx.arcTo(x, y + h, x, y, rr);
   ctx.arcTo(x, y, x + w, y, rr);
   ctx.closePath();
+}
+
+/** Theme-aware shape: parallelogram (leaning) or rounded rect. x = bottom-left. */
+function shapePath(ctx, shape, x, y, w, h) {
+  if (shape.lean > 0) paraPath(ctx, x, y, w, h, shape.lean * h);
+  else roundRectPath(ctx, x, y, w, h, shape.radius);
+}
+
+function themeLean(theme) {
+  if (theme.shape?.style === 'parallelogram') {
+    return Math.tan(((theme.shape.skew ?? 12) * Math.PI) / 180);
+  }
+  return 0;
 }
 
 function setFont(ctx, weight, px, family) {
@@ -131,6 +163,54 @@ export function drawArches(ctx, cx, baseY, R, colors, center) {
   }
 }
 
+// ----------------------------------------------------------------- lockup ---
+// Horizontal station lockup, proportioned like BIG's horizontal logo: arches
+// at the left sized to the cap height, then the short name in BIG chunky caps
+// (the letters lead, the arches accent — not the other way around).
+
+function lockupMetrics(ctx, theme, capH, assets) {
+  const wantImage = theme.identity.markStyle === 'image' && assets?.logo;
+  const style = wantImage ? 'image' : theme.identity.markStyle ?? 'arches';
+  if (style === 'none') return null;
+  if (style === 'image') {
+    const img = assets.logo;
+    const h = capH * 2.1;
+    return { style, h, w: (img.width / img.height) * h };
+  }
+  const short = theme.identity.short || 'TV';
+  const size = capH / 0.7; // Montserrat cap height ≈ 0.70 em
+  setFont(ctx, theme.fonts.displayWeight, size, theme.fonts.display);
+  const textW = measure(ctx, short);
+  if (style === 'chip') {
+    return { style, short, size, textW, capH, w: textW, h: capH };
+  }
+  // arches: outer radius ~80% of cap height, snug gap — letters lead
+  const R = capH * 0.8;
+  const gap = capH * 0.3;
+  return { style, short, size, textW, R, gap, capH, w: R * 2 + gap + textW, h: Math.max(R, capH) };
+}
+
+/** Draw the lockup with its BASELINE at `baselineY`, left edge at `x`. */
+function drawLockup(ctx, m, x, baselineY, theme, assets) {
+  const C = theme.colors;
+  if (!m) return;
+  if (m.style === 'image') {
+    ctx.drawImage(assets.logo, x, baselineY - m.h, m.w, m.h);
+    return;
+  }
+  if (m.style === 'arches') {
+    drawArches(ctx, x + m.R, baselineY, m.R, C.archColors ?? C.stripes, C.archCenter ?? C.text);
+    setFont(ctx, theme.fonts.displayWeight, m.size, theme.fonts.display);
+    ctx.fillStyle = C.text;
+    ctx.fillText(m.short, x + m.R * 2 + m.gap, baselineY);
+    return;
+  }
+  // chip: just the short name in display caps
+  setFont(ctx, theme.fonts.displayWeight, m.size, theme.fonts.display);
+  ctx.fillStyle = C.text;
+  ctx.fillText(m.short, x, baselineY);
+}
+
 // ---------------------------------------------------------------- timeline ---
 
 export function totalDuration(opts) {
@@ -145,6 +225,7 @@ export function holdTime(opts) {
 
 /**
  * Measures everything and returns a draw plan (positions at rest).
+ * Panels/badges/tabs use bottom-left x + top y + lean-aware geometry.
  * Pure measurement — no painting.
  */
 function computeLayout(ctx, item, theme, opts) {
@@ -154,191 +235,199 @@ function computeLayout(ctx, item, theme, opts) {
   const C = theme.colors;
   const F = theme.fonts;
   const L = theme.layout;
+  const lean = themeLean(theme);
 
   const mx = (L.marginX ?? 96) * (H / 1080);
   const my = (L.marginY ?? 72) * (H / 1080);
-  const stripeBandH = theme.flags.stripe ? 6 * u : 0;
-  const stripeH = theme.flags.stripe ? stripeBandH * (C.stripes?.length ?? 4) : 0;
-  const padX = 44 * u;
-  const radius = (L.cornerRadius ?? 10) * u;
+  const padX = 42 * u;
+  const shape = { lean, radius: (L.cornerRadius ?? 10) * u };
+
+  const stripes = theme.flags.stripe ? (C.stripes ?? []) : [];
+  const bandH = 7.5 * u;
 
   /** @type {any} */
   const plan = {
-    u, W, H, radius, stripeH, stripeBandH, padX,
+    u, W, H, shape, padX,
     type: item.type,
-    texts: [], // {kind:'line'|'secondary'|'tag', text, x, y(baseline), size, weight, family, color, tracking, index}
+    texts: [],
     badge: null,
-    mark: null,
+    tab: null,
+    lockup: null,
+    divider: null,
+    blade: null,
+    stripeTail: null,
     panel: null,
   };
 
   const maxFrac = L.maxWidthFrac ?? (item.type === 'article' ? 0.68 : 0.56);
-  const maxTextW = W * maxFrac - padX * 2;
+
+  // --- per-type content measurement -------------------------------------
+
+  let panelW = 0;
+  let panelH = 0;
+  let padTop = 0;
+  const rows = []; // {kind,text,size,weight,family,color,tracking,gapBefore,lineH}
 
   if (item.type === 'speaker') {
+    const maxTextW = W * maxFrac - padX * 2;
     const name = fitLines(ctx, item.primary, {
       family: F.display, weight: F.displayWeight, maxSize: 58 * u, minSize: 36 * u,
       maxWidth: maxTextW, maxLines: 1,
     });
-    const hasRole = !!String(item.secondary ?? '').trim();
-    const role = hasRole
-      ? fitLines(ctx, item.secondary, {
-          family: F.text, weight: F.textWeight, maxSize: 33 * u, minSize: 22 * u,
-          maxWidth: maxTextW, maxLines: 1,
-        })
-      : null;
-
-    const padTop = 30 * u;
-    const padBottom = 28 * u + stripeH;
-    const gap = hasRole ? 12 * u : 0;
-    const nameH = name.size * 1.04;
-    const roleH = role ? role.size * 1.1 : 0;
-    const contentW = Math.max(
-      name.lines[0]?.width ?? 0,
-      role?.lines[0]?.width ?? 0,
-      300 * u,
-    );
-    const panelW = contentW + padX * 2;
-    const panelH = padTop + nameH + gap + roleH + padBottom;
-    const px = L.position === 'center' ? (W - panelW) / 2 : mx;
-    const py = H - my - panelH;
-    plan.panel = { x: px, y: py, w: panelW, h: panelH };
-
-    let ty = py + padTop + name.size * 0.82;
-    plan.texts.push({
-      kind: 'line', index: 0, text: name.lines[0]?.text ?? '', x: px + padX, y: ty,
-      size: name.size, weight: F.displayWeight, family: F.display, color: C.text, tracking: 0,
-    });
-    if (role) {
-      ty += nameH * 0.22 + gap + role.size * 0.82;
-      plan.texts.push({
-        kind: 'secondary', index: 1, text: role.lines[0]?.text ?? '', x: px + padX, y: ty,
-        size: role.size, weight: F.textWeight, family: F.text, color: C.secondary, tracking: 0,
+    rows.push({ kind: 'line', text: name.lines[0]?.text ?? '', size: name.size, weight: F.displayWeight, family: F.display, color: C.text, tracking: 0, gapBefore: 0, lineH: name.size * 1.06, width: name.lines[0]?.width ?? 0 });
+    if (String(item.secondary ?? '').trim()) {
+      const role = fitLines(ctx, item.secondary, {
+        family: F.text, weight: F.textWeight, maxSize: 32 * u, minSize: 22 * u,
+        maxWidth: maxTextW, maxLines: 1,
       });
+      rows.push({ kind: 'secondary', text: role.lines[0]?.text ?? '', size: role.size, weight: F.textWeight, family: F.text, color: C.secondary, tracking: 0, gapBefore: 13 * u, lineH: role.size * 1.1, width: role.lines[0]?.width ?? 0 });
     }
+    padTop = 30 * u;
   }
 
   if (item.type === 'article') {
-    const badgeText = theme.flags.uppercaseBadge ? String(item.badge ?? '').toUpperCase() : String(item.badge ?? '');
-    const badgeSize = 30 * u;
-    const badgeTracking = 2.2 * u;
-    setFont(ctx, F.displayWeight, badgeSize, F.display);
-    const badgeTextW = badgeText ? measureTracked(ctx, badgeText, badgeTracking) : 0;
-    const badgePadX = 24 * u;
-    const badgeH = badgeSize + 26 * u;
-    const badgeW = badgeText ? badgeTextW + badgePadX * 2 : 0;
-
+    const maxTextW = W * maxFrac - padX * 2;
     const title = fitLines(ctx, item.primary, {
       family: F.text, weight: 600, maxSize: 40 * u, minSize: 25 * u,
       maxWidth: maxTextW, maxLines: 3,
     });
-    const hasTag = !!String(item.secondary ?? '').trim();
-    const tagText = theme.flags.uppercaseTag ? String(item.secondary ?? '').toUpperCase() : String(item.secondary ?? '');
-    const tagSize = 21.5 * u;
-    const tagTracking = 1.6 * u;
-    setFont(ctx, 600, tagSize, F.text);
-    const tagW = hasTag ? measureTracked(ctx, tagText, tagTracking) : 0;
-
-    const lineH = title.size * 1.22;
-    const padTop = (badgeText ? badgeH / 2 : 0) + 24 * u;
-    const padBottom = 26 * u + stripeH;
-    const gapTag = hasTag ? 18 * u : 0;
-    const contentW = Math.max(...title.lines.map((l) => l.width), tagW, badgeW + 40 * u, 480 * u);
-    const panelW = Math.min(contentW + padX * 2, W * maxFrac);
-    const panelH = padTop + title.lines.length * lineH + gapTag + (hasTag ? tagSize * 1.25 : 0) + padBottom;
-    const px = L.position === 'center' ? (W - panelW) / 2 : mx;
-    const py = H - my - panelH;
-    plan.panel = { x: px, y: py, w: panelW, h: panelH };
-
-    if (badgeText) {
-      plan.badge = {
-        text: badgeText, x: px + 36 * u, y: py - badgeH / 2, w: badgeW, h: badgeH,
-        size: badgeSize, tracking: badgeTracking, r: 10 * u,
-      };
-    }
-
-    let ty = py + padTop + title.size * 0.85;
     title.lines.forEach((l, i) => {
-      plan.texts.push({
-        kind: 'line', index: i, text: l.text, x: px + padX, y: ty + i * lineH,
-        size: title.size, weight: 600, family: F.text, color: C.text, tracking: 0,
-      });
+      rows.push({ kind: 'line', text: l.text, size: title.size, weight: 600, family: F.text, color: C.text, tracking: 0, gapBefore: i === 0 ? 0 : 0, lineH: title.size * 1.22, width: l.width });
     });
-    if (hasTag) {
-      plan.texts.push({
-        kind: 'tag', index: title.lines.length, text: tagText, x: px + padX,
-        y: py + padTop + title.lines.length * lineH + gapTag + tagSize * 0.8,
-        size: tagSize, weight: 600, family: F.text, color: C.tag, tracking: tagTracking,
-      });
+    if (String(item.secondary ?? '').trim()) {
+      const tagText = theme.flags.uppercaseTag ? item.secondary.toUpperCase() : item.secondary;
+      const tagSize = 21.5 * u;
+      const tagTracking = 1.6 * u;
+      setFont(ctx, 600, tagSize, F.text);
+      rows.push({ kind: 'tag', text: tagText, size: tagSize, weight: 600, family: F.text, color: C.tag, tracking: tagTracking, gapBefore: 16 * u, lineH: tagSize * 1.25, width: measureTracked(ctx, tagText, tagTracking) });
     }
+    padTop = 26 * u;
   }
 
   if (item.type === 'show') {
-    // Station mark zone (arches/logo/chip) + divider + event title / org line
-    const markStyle = opts.assets?.logo ? 'image' : (theme.identity.markStyle ?? 'arches');
-    let markW = 0;
-    let mark = null;
-    if (markStyle === 'arches') {
-      const R = 56 * u;
-      setFont(ctx, F.displayWeight, 40 * u, F.display);
-      const bigW = measure(ctx, theme.identity.short || 'BIG');
-      markW = Math.max(2 * R, bigW);
-      mark = { style: 'arches', R, w: markW, shortSize: 40 * u };
-    } else if (markStyle === 'image') {
-      const img = opts.assets.logo;
-      const targetH = 108 * u;
-      const iw = (img.width / img.height) * targetH;
-      markW = iw;
-      mark = { style: 'image', w: iw, h: targetH };
-    } else if (markStyle === 'chip') {
-      setFont(ctx, F.displayWeight, 44 * u, F.display);
-      markW = measure(ctx, theme.identity.short || 'TV') + 36 * u;
-      mark = { style: 'chip', w: markW, size: 44 * u };
-    }
-    const divGap = mark ? 32 * u : 0;
-    const divW = mark ? 2 * u : 0;
-
-    const textMaxW = W * (L.maxWidthFrac ?? 0.62) - padX * 2 - markW - divGap * 2 - divW;
+    const lock = lockupMetrics(ctx, theme, 42 * u, opts.assets);
+    const lockGap = lock ? 30 * u : 0;
+    const divW = lock ? 2.5 * u : 0;
+    const maxTextW = W * (L.maxWidthFrac ?? 0.62) - padX * 2 - (lock ? lock.w + lockGap * 2 + divW : 0);
     const title = fitLines(ctx, item.primary, {
       family: F.display, weight: F.displayWeight, maxSize: 54 * u, minSize: 32 * u,
-      maxWidth: textMaxW, maxLines: 2,
+      maxWidth: maxTextW, maxLines: 2,
+    });
+    title.lines.forEach((l) => {
+      rows.push({ kind: 'line', text: l.text, size: title.size, weight: F.displayWeight, family: F.display, color: C.text, tracking: 0, gapBefore: 0, lineH: title.size * 1.12, width: l.width });
     });
     const sub = String(item.secondary ?? '').trim() ||
       `${theme.identity.org}${theme.identity.url ? ' · ' + theme.identity.url : ''}`;
     const subFit = fitLines(ctx, sub, {
       family: F.text, weight: F.textWeight, maxSize: 28 * u, minSize: 20 * u,
-      maxWidth: textMaxW, maxLines: 1,
+      maxWidth: maxTextW, maxLines: 1,
     });
+    rows.push({ kind: 'secondary', text: subFit.lines[0]?.text ?? '', size: subFit.size, weight: F.textWeight, family: F.text, color: C.tag, tracking: 0, gapBefore: 14 * u, lineH: subFit.size * 1.2, width: subFit.lines[0]?.width ?? 0 });
+    padTop = 30 * u;
+    plan.showLock = lock ? { lock, lockGap, divW } : null;
+  }
 
-    const lineH = title.size * 1.12;
-    const padTop = 30 * u;
-    const padBottom = 28 * u + stripeH;
-    const gap = 14 * u;
-    const textW = Math.max(...title.lines.map((l) => l.width), subFit.lines[0]?.width ?? 0);
-    const panelW = (mark ? markW + divGap * 2 + divW : 0) + textW + padX * 2;
-    const panelH = padTop + title.lines.length * lineH + gap + subFit.size * 1.2 + padBottom;
-    const px = L.position === 'center' ? (W - panelW) / 2 : mx;
-    const py = H - my - panelH;
-    plan.panel = { x: px, y: py, w: panelW, h: panelH };
+  // --- panel box ---------------------------------------------------------
 
-    const contentH = panelH - stripeH;
-    if (mark) {
-      plan.mark = { ...mark, x: px + padX, cy: py + contentH / 2 };
-      plan.divider = { x: px + padX + markW + divGap, y0: py + 26 * u, y1: py + contentH - 26 * u, w: divW };
+  const contentH = rows.reduce((a, r) => a + r.gapBefore + r.lineH, 0);
+  const padBottom = item.type === 'speaker' ? 28 * u : item.type === 'article' ? 26 * u : 28 * u;
+  panelH = padTop + contentH + padBottom;
+
+  const contentW = Math.max(...rows.map((r) => r.width), 300 * u);
+  const leanSlack = lean * panelH * 0.55; // room so the leaning edge never clips text
+  if (item.type === 'show' && plan.showLock) {
+    const { lock, lockGap, divW } = plan.showLock;
+    panelW = padX * 2 + lock.w + lockGap * 2 + divW + contentW + leanSlack;
+  } else {
+    panelW = padX * 2 + contentW + leanSlack;
+  }
+  panelW = Math.min(panelW, W * maxFrac + leanSlack);
+
+  const px = L.position === 'center' ? (W - panelW - lean * panelH) / 2 : mx;
+  const py = H - my - panelH;
+  const panelBottom = py + panelH;
+  plan.panel = { x: px, y: py, w: panelW, h: panelH };
+
+  // x of the panel's left edge at a given y (the lean line)
+  const edgeX = (y) => px + lean * (panelBottom - y);
+
+  // --- text positions ----------------------------------------------------
+
+  const textX0 = (item.type === 'show' && plan.showLock)
+    ? edgeX(py + panelH * 0.45) + padX + plan.showLock.lock.w + plan.showLock.lockGap * 2 + plan.showLock.divW
+    : edgeX(py + panelH * 0.45) + padX;
+
+  let cy = py + padTop;
+  let idx = 0;
+  for (const r of rows) {
+    cy += r.gapBefore;
+    const baseline = cy + r.size * 0.84;
+    plan.texts.push({ ...r, x: textX0, y: baseline, index: idx++ });
+    cy += r.lineH;
+  }
+
+  // --- show lockup + divider placement -----------------------------------
+
+  if (item.type === 'show' && plan.showLock) {
+    const { lock, lockGap, divW } = plan.showLock;
+    const zoneX = edgeX(py + panelH * 0.45) + padX;
+    const centerY = py + panelH / 2;
+    plan.lockup = { m: lock, x: zoneX, baselineY: centerY + lock.h / 2 };
+    plan.divider = { x: zoneX + lock.w + lockGap, y0: py + 22 * u, y1: panelBottom - 22 * u, w: divW };
+  }
+
+  // --- badge (article) — juts up over the top edge, protrudes left -------
+
+  if (item.type === 'article' && String(item.badge ?? '').trim()) {
+    const badgeText = theme.flags.uppercaseBadge ? item.badge.toUpperCase() : item.badge;
+    const bSize = 29 * u;
+    const bTrack = 2.2 * u;
+    setFont(ctx, F.displayWeight, bSize, F.display);
+    const btw = measureTracked(ctx, badgeText, bTrack);
+    const bh = bSize + 25 * u;
+    const bw = btw + 46 * u;
+    const bBottomY = py + bh * 0.42; // 58% juts above the panel top
+    const bx = edgeX(bBottomY) - 14 * u; // bottom-left, protruding left of the edge
+    plan.badge = { text: badgeText, x: bx, y: bBottomY - bh, w: bw, h: bh, size: bSize, tracking: bTrack };
+  }
+
+  // --- station tab (speaker + article) — juts above the top-right --------
+
+  if (item.type !== 'show' && theme.flags.markOnAll && theme.identity.markStyle !== 'none') {
+    const tabCapH = 16 * u;
+    const m = lockupMetrics(ctx, theme, tabCapH, opts.assets);
+    if (m) {
+      const tabPad = 17 * u;
+      const th = 45 * u;
+      const tw = m.w + tabPad * 2 + lean * th;
+      const topRightX = px + lean * panelH + panelW; // panel's top-right corner
+      const tabBottomY = py + 2 * u; // tiny overlap, no hairline gap
+      const tbx = topRightX - (item.type === 'article' ? 26 * u : 30 * u) - tw;
+      plan.tab = { x: tbx, y: tabBottomY - th, w: tw, h: th, m, pad: tabPad };
     }
-    const tx = px + padX + (mark ? markW + divGap * 2 + divW : 0);
-    let ty = py + padTop + title.size * 0.84;
-    title.lines.forEach((l, i) => {
-      plan.texts.push({
-        kind: 'line', index: i, text: l.text, x: tx, y: ty + i * lineH,
-        size: title.size, weight: F.displayWeight, family: F.display, color: C.text, tracking: 0,
-      });
-    });
-    plan.texts.push({
-      kind: 'secondary', index: title.lines.length, text: subFit.lines[0]?.text ?? '', x: tx,
-      y: py + padTop + title.lines.length * lineH + gap + subFit.size * 0.82,
-      size: subFit.size, weight: F.textWeight, family: F.text, color: C.tag, tracking: 0,
-    });
+  }
+
+  // --- accent blade — floats off the left edge, overhangs top & bottom ---
+
+  if (theme.flags.blade) {
+    const overhang = 17 * u;
+    const bladeW = 14 * u;
+    const bladeH = panelH + overhang * 2;
+    const bladeBottomY = panelBottom + overhang;
+    const bx = edgeX(bladeBottomY) - 26 * u - bladeW;
+    plan.blade = { x: bx, y: py - overhang, w: bladeW, h: bladeH };
+  }
+
+  // --- stripe tail — streaks out past the bottom-right -------------------
+
+  if (stripes.length) {
+    const exts = [150, 92, 46, 24];
+    const bands = stripes.map((color, i) => ({
+      color,
+      y: panelBottom + i * bandH,
+      ext: (exts[i] ?? 20) * u,
+    }));
+    plan.stripeTail = { bands, bandH, startFrac: 0.45 };
   }
 
   return plan;
@@ -369,6 +458,8 @@ export function drawFrame(ctx, t, item, theme, opts) {
   const outP = opts.outDur > 0 ? clamp01((t - outStart) / opts.outDur) : (t >= outStart ? 1 : 0);
   const u = plan.u;
   const C = theme.colors;
+  const lean = plan.shape.lean;
+  const P = plan.panel;
 
   // Group (out) transform
   const og = easeInCubic(outP);
@@ -380,114 +471,139 @@ export function drawFrame(ctx, t, item, theme, opts) {
 
   // Panel (in) transform
   const pPanel = ph(inP, 0, 0.72);
-  let px = 0, py = 0;
+  let pdx = 0, pdy = 0;
   let panelAlpha = pPanel;
-  if (anim === 'slide') px = -70 * u * (1 - pPanel);
-  if (anim === 'rise') py = 50 * u * (1 - pPanel);
-  if (anim === 'wipe') { px = 0; panelAlpha = 1; }
+  if (anim === 'slide') pdx = -70 * u * (1 - pPanel);
+  if (anim === 'rise') pdy = 50 * u * (1 - pPanel);
+  if (anim === 'wipe') panelAlpha = 1;
 
-  const P = plan.panel;
+  const shadowOn = theme.flags.shadow;
+  const setShadow = (blur, dy, a) => {
+    if (!shadowOn) return;
+    ctx.shadowColor = `rgba(10, 8, 30, ${a})`;
+    ctx.shadowBlur = blur;
+    ctx.shadowOffsetY = dy;
+  };
+  const clearShadow = () => {
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+  };
 
   ctx.save();
-  ctx.translate(gx + px, gy + py);
+  ctx.translate(gx, gy);
 
   // Wipe reveal clips the whole card
   if (anim === 'wipe' && inP < 1) {
     const wp = ph(inP, 0, 0.8);
     ctx.beginPath();
-    ctx.rect(P.x - 40 * u, P.y - 120 * u, (P.w + 80 * u) * wp, P.h + 200 * u);
+    ctx.rect(P.x - 90 * u, P.y - 140 * u, (P.w + lean * P.h + 320 * u) * wp, P.h + 280 * u);
     ctx.clip();
   }
 
-  // --- panel
-  ctx.globalAlpha = galpha * (anim === 'fade' ? pPanel : panelAlpha);
-  if (theme.flags.shadow) {
+  // --- accent blade (behind everything, early entrance)
+  if (plan.blade) {
+    const b = plan.blade;
+    const bp = ph(inP, 0.02, 0.6);
     ctx.save();
-    ctx.shadowColor = 'rgba(10, 8, 30, 0.38)';
-    ctx.shadowBlur = 26 * u;
-    ctx.shadowOffsetY = 10 * u;
-    roundRectPath(ctx, P.x, P.y, P.w, P.h, plan.radius);
-    ctx.fillStyle = C.panel;
+    ctx.globalAlpha = galpha * bp;
+    const grow = anim === 'fade' ? 1 : bp;
+    const bh = b.h * grow;
+    const byTop = b.y + (b.h - bh) / 2; // grows from center
+    const bxAdj = b.x + lean * ((b.y + b.h) - (byTop + bh)); // keep on the lean line
+    setShadow(10 * u, 4 * u, 0.25);
+    paraPath(ctx, bxAdj + pdx * 0.5, byTop + pdy * 0.5, b.w, bh, lean * bh);
+    ctx.fillStyle = C.accent;
     ctx.fill();
+    clearShadow();
     ctx.restore();
-  } else {
-    roundRectPath(ctx, P.x, P.y, P.w, P.h, plan.radius);
-    ctx.fillStyle = C.panel;
-    ctx.fill();
   }
 
-  // --- stripes (clipped to panel, along bottom edge)
-  if (plan.stripeH > 0 && C.stripes?.length) {
+  // --- stripe tail (streaks in with stagger, behind the panel)
+  if (plan.stripeTail) {
+    const st = plan.stripeTail;
     ctx.save();
-    roundRectPath(ctx, P.x, P.y, P.w, P.h, plan.radius);
-    ctx.clip();
-    const n = C.stripes.length;
-    for (let i = 0; i < n; i++) {
-      const sp = ph(inP, 0.1 + i * 0.07, 0.55);
-      ctx.globalAlpha = galpha * sp;
-      const y = P.y + P.h - plan.stripeH + i * plan.stripeBandH;
-      ctx.fillStyle = C.stripes[i];
-      ctx.fillRect(P.x, y, P.w * (anim === 'fade' ? 1 : sp), plan.stripeBandH + 0.6);
+    for (let i = 0; i < st.bands.length; i++) {
+      const band = st.bands[i];
+      const sp = ph(inP, 0.16 + i * 0.07, 0.55);
+      if (sp <= 0) continue;
+      ctx.globalAlpha = galpha * Math.min(1, sp * 1.6);
+      const yTop = band.y;
+      const startX = P.x - lean * (yTop + st.bandH - (P.y + P.h)) + P.w * st.startFrac;
+      const fullLen = P.w * (1 - st.startFrac) + band.ext;
+      const len = fullLen * (anim === 'fade' ? 1 : sp);
+      paraPath(ctx, startX + pdx, yTop + pdy, len, st.bandH + 0.5, lean * st.bandH);
+      ctx.fillStyle = band.color;
+      ctx.fill();
     }
     ctx.restore();
   }
 
-  // --- badge chip
+  // --- main panel
+  ctx.save();
+  ctx.globalAlpha = galpha * (anim === 'fade' ? pPanel : panelAlpha);
+  setShadow(26 * u, 10 * u, 0.38);
+  shapePath(ctx, plan.shape, P.x + pdx, P.y + pdy, P.w, P.h);
+  ctx.fillStyle = C.panel;
+  ctx.fill();
+  clearShadow();
+  ctx.restore();
+
+  // --- badge chip (article)
   if (plan.badge) {
     const b = plan.badge;
     const bp = ph(inP, 0.1, 0.6);
     ctx.save();
     ctx.globalAlpha = galpha * bp;
-    const byOff = anim === 'fade' ? 0 : 16 * u * (1 - bp);
-    if (theme.flags.shadow) {
-      ctx.shadowColor = 'rgba(10, 8, 30, 0.28)';
-      ctx.shadowBlur = 14 * u;
-      ctx.shadowOffsetY = 5 * u;
-    }
-    roundRectPath(ctx, b.x, b.y + byOff, b.w, b.h, b.r);
+    const byOff = (anim === 'fade' ? 0 : 18 * u * (1 - bp)) + pdy;
+    setShadow(14 * u, 5 * u, 0.28);
+    shapePath(ctx, plan.shape, b.x + pdx, b.y + byOff, b.w, b.h);
     ctx.fillStyle = C.badgeBg;
     ctx.fill();
-    ctx.shadowColor = 'transparent';
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetY = 0;
+    clearShadow();
     setFont(ctx, theme.fonts.displayWeight, b.size, theme.fonts.display);
     ctx.fillStyle = C.badgeText;
-    drawTracked(ctx, b.text, b.x + (b.w - measureTracked(ctx, b.text, b.tracking)) / 2, b.y + byOff + b.h / 2 + b.size * 0.36, b.tracking);
+    const btw = measureTracked(ctx, b.text, b.tracking);
+    drawTracked(
+      ctx, b.text,
+      b.x + pdx + plan.shape.lean * b.h * 0.5 + (b.w - btw) / 2,
+      b.y + byOff + b.h / 2 + b.size * 0.36,
+      b.tracking,
+    );
     ctx.restore();
   }
 
-  // --- station mark (show type)
-  if (plan.mark) {
-    const m = plan.mark;
+  // --- station tab (speaker + article)
+  if (plan.tab) {
+    const tb = plan.tab;
+    const tp = ph(inP, 0.22, 0.55);
+    ctx.save();
+    ctx.globalAlpha = galpha * tp;
+    const tyOff = (anim === 'fade' ? 0 : 14 * u * (1 - tp)) + pdy;
+    shapePath(ctx, plan.shape, tb.x + pdx, tb.y + tyOff, tb.w, tb.h);
+    ctx.fillStyle = C.panel;
+    ctx.fill();
+    const m = tb.m;
+    const baselineY = tb.y + tyOff + tb.h / 2 + m.h / 2 - 1 * u;
+    drawLockup(ctx, m, tb.x + pdx + plan.shape.lean * tb.h * 0.6 + tb.pad, baselineY, theme, opts.assets);
+    ctx.restore();
+  }
+
+  // --- show lockup + divider
+  if (plan.lockup) {
     const mp = ph(inP, 0.14, 0.6);
     ctx.save();
     ctx.globalAlpha = galpha * mp;
-    if (m.style === 'arches') {
-      const archBaseY = m.cy + 6 * u;
-      drawArches(ctx, m.x + m.w / 2, archBaseY - m.shortSize * 0.95, m.R, C.archColors ?? C.stripes, C.archCenter ?? C.text);
-      setFont(ctx, theme.fonts.displayWeight, m.shortSize, theme.fonts.display);
+    const mdx = (anim === 'fade' ? 0 : -18 * u * (1 - mp)) + pdx;
+    drawLockup(ctx, plan.lockup.m, plan.lockup.x + mdx, plan.lockup.baselineY + pdy, theme, opts.assets);
+    if (plan.divider) {
+      ctx.globalAlpha = galpha * mp * 0.3;
+      const d = plan.divider;
+      paraPath(ctx, d.x - lean * (d.y1 - (P.y + P.h)) + mdx, d.y0 + pdy, d.w, d.y1 - d.y0, lean * (d.y1 - d.y0));
       ctx.fillStyle = C.text;
-      const sw = measure(ctx, theme.identity.short || 'BIG');
-      ctx.fillText(theme.identity.short || 'BIG', m.x + (m.w - sw) / 2, archBaseY + m.shortSize * 0.42);
-    } else if (m.style === 'image' && opts.assets?.logo) {
-      ctx.drawImage(opts.assets.logo, m.x, m.cy - m.h / 2, m.w, m.h);
-    } else if (m.style === 'chip') {
-      setFont(ctx, theme.fonts.displayWeight, m.size, theme.fonts.display);
-      ctx.fillStyle = C.accent;
-      roundRectPath(ctx, m.x, m.cy - m.size * 0.78, m.w, m.size * 1.56, 10 * u);
       ctx.fill();
-      ctx.fillStyle = C.badgeText;
-      const sw = measure(ctx, theme.identity.short || 'TV');
-      ctx.fillText(theme.identity.short || 'TV', m.x + (m.w - sw) / 2, m.cy + m.size * 0.36);
     }
     ctx.restore();
-    if (plan.divider) {
-      ctx.save();
-      ctx.globalAlpha = galpha * mp * 0.3;
-      ctx.fillStyle = C.text;
-      ctx.fillRect(plan.divider.x, plan.divider.y0, plan.divider.w, plan.divider.y1 - plan.divider.y0);
-      ctx.restore();
-    }
   }
 
   // --- text
@@ -495,8 +611,8 @@ export function drawFrame(ctx, t, item, theme, opts) {
     const tp = ph(inP, 0.2 + tx.index * 0.09, 0.58);
     ctx.save();
     ctx.globalAlpha = galpha * tp;
-    const dx = anim === 'fade' ? 0 : -26 * u * (1 - tp);
-    const dy = anim === 'rise' ? 12 * u * (1 - tp) : 0;
+    const dx = (anim === 'fade' ? 0 : -26 * u * (1 - tp)) + pdx;
+    const dy = (anim === 'rise' ? 12 * u * (1 - tp) : 0) + pdy;
     setFont(ctx, tx.weight, tx.size, tx.family);
     ctx.fillStyle = tx.color;
     if (tx.tracking > 0) drawTracked(ctx, tx.text, tx.x + dx, tx.y + dy, tx.tracking);

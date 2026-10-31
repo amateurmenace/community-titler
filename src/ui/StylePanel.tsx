@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { BUILT_IN_THEMES } from '../renderer/themes.js';
+import { BUILT_IN_THEMES, normalizeTheme } from '../renderer/themes.js';
 import { addCustomFont, availableFontFamilies } from '../renderer/fonts';
 import type { ThemeDef } from '../types';
 import { newId } from '../types';
@@ -29,7 +29,7 @@ export default function StylePanel(props: {
     if (!isCustom) return;
     const next = customThemes.map((t) => {
       if (t.id !== themeId) return t;
-      const copy: ThemeDef = JSON.parse(JSON.stringify(t));
+      const copy = normalizeTheme(JSON.parse(JSON.stringify(t))) as ThemeDef;
       fn(copy);
       return copy;
     });
@@ -51,7 +51,7 @@ export default function StylePanel(props: {
 
   const importTheme = async (file: File) => {
     try {
-      const t = JSON.parse(await file.text()) as ThemeDef;
+      const t = normalizeTheme(JSON.parse(await file.text())) as ThemeDef;
       if (!t?.colors?.panel || !t?.fonts?.display) throw new Error('not a theme file');
       t.id = `custom-${newId()}`;
       onCustomThemesChange([...customThemes, t], t.id);
@@ -217,8 +217,31 @@ export default function StylePanel(props: {
           />
         </label>
 
-        <h4>Layout &amp; motion</h4>
+        <h4>Shape, layout &amp; motion</h4>
         <div className="grid2">
+          <label className="fld"><span>Panel shape</span>
+            <select
+              value={theme.shape.style}
+              disabled={!isCustom}
+              onChange={(e) => patch((t) => {
+                t.shape.style = e.target.value as any;
+                if (t.shape.style === 'parallelogram' && !(t.shape.skew > 0)) t.shape.skew = 12;
+              })}
+            >
+              <option value="parallelogram">Parallelogram (leaning)</option>
+              <option value="rounded">Rounded rectangle</option>
+            </select>
+          </label>
+          <label className="fld">
+            <span>{theme.shape.style === 'parallelogram' ? `Lean (${theme.shape.skew}°)` : `Corner radius (${theme.layout.cornerRadius})`}</span>
+            {theme.shape.style === 'parallelogram' ? (
+              <input type="range" min={4} max={20} value={theme.shape.skew} disabled={!isCustom}
+                onChange={(e) => patch((t) => { t.shape.skew = +e.target.value; })} />
+            ) : (
+              <input type="range" min={0} max={28} value={theme.layout.cornerRadius} disabled={!isCustom}
+                onChange={(e) => patch((t) => { t.layout.cornerRadius = +e.target.value; })} />
+            )}
+          </label>
           <label className="fld"><span>Position</span>
             <select value={theme.layout.position} disabled={!isCustom} onChange={(e) => patch((t) => { t.layout.position = e.target.value as any; })}>
               <option value="left">Lower left</option>
@@ -233,11 +256,7 @@ export default function StylePanel(props: {
               <option value="fade">Fade</option>
             </select>
           </label>
-          <label className="fld"><span>Corner radius ({theme.layout.cornerRadius})</span>
-            <input type="range" min={0} max={28} value={theme.layout.cornerRadius} disabled={!isCustom}
-              onChange={(e) => patch((t) => { t.layout.cornerRadius = +e.target.value; })} />
-          </label>
-          <label className="fld"><span>Scale ({theme.layout.scale.toFixed(2)}×)</span>
+          <label className="fld" style={{ gridColumn: 'span 2' }}><span>Scale ({theme.layout.scale.toFixed(2)}×)</span>
             <input type="range" min={0.7} max={1.4} step={0.05} value={theme.layout.scale} disabled={!isCustom}
               onChange={(e) => patch((t) => { t.layout.scale = +e.target.value; })} />
           </label>
@@ -245,7 +264,15 @@ export default function StylePanel(props: {
         <div className="grid2">
           <label className="row" style={{ gap: 6 }}>
             <input type="checkbox" checked={theme.flags.stripe} disabled={!isCustom}
-              onChange={(e) => patch((t) => { t.flags.stripe = e.target.checked; })} /> Stripes
+              onChange={(e) => patch((t) => { t.flags.stripe = e.target.checked; })} /> Stripe tail
+          </label>
+          <label className="row" style={{ gap: 6 }}>
+            <input type="checkbox" checked={theme.flags.blade} disabled={!isCustom}
+              onChange={(e) => patch((t) => { t.flags.blade = e.target.checked; })} /> Accent blade
+          </label>
+          <label className="row" style={{ gap: 6 }}>
+            <input type="checkbox" checked={theme.flags.markOnAll} disabled={!isCustom}
+              onChange={(e) => patch((t) => { t.flags.markOnAll = e.target.checked; })} /> Mark on every title
           </label>
           <label className="row" style={{ gap: 6 }}>
             <input type="checkbox" checked={theme.flags.shadow} disabled={!isCustom}

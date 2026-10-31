@@ -27,7 +27,7 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync, readdirSync } from 
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { drawFrame, totalDuration, holdTime } from '../src/renderer/core.js';
-import { BUILT_IN_THEMES } from '../src/renderer/themes.js';
+import { BUILT_IN_THEMES, normalizeTheme } from '../src/renderer/themes.js';
 import { parseCSV, detectDelimiter, rowsToItems, itemFileBase } from '../src/shared/csv.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -66,13 +66,14 @@ for (const f of readdirSync(fontDir)) {
 let theme;
 const themeArg = flag('theme', 'big');
 if (themeArg.endsWith('.json')) {
-  theme = JSON.parse(readFileSync(resolve(themeArg), 'utf8'));
+  theme = normalizeTheme(JSON.parse(readFileSync(resolve(themeArg), 'utf8')));
 } else {
   theme = BUILT_IN_THEMES.find((t) => t.id === themeArg);
   if (!theme) {
     console.error(`Unknown theme "${themeArg}". Built-ins: ${BUILT_IN_THEMES.map((t) => t.id).join(', ')}`);
     process.exit(1);
   }
+  theme = normalizeTheme(theme);
 }
 
 // ---------------------------------------------------------------- items ---

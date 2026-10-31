@@ -33,6 +33,7 @@ export interface ThemeDef {
     archColors: string[];
     archCenter: string;
   };
+  shape: { style: 'parallelogram' | 'rounded'; skew: number };
   layout: {
     position: 'left' | 'center';
     marginX: number;
@@ -41,7 +42,14 @@ export interface ThemeDef {
     cornerRadius: number;
     scale: number;
   };
-  flags: { stripe: boolean; shadow: boolean; uppercaseBadge: boolean; uppercaseTag: boolean };
+  flags: {
+    stripe: boolean;
+    shadow: boolean;
+    uppercaseBadge: boolean;
+    uppercaseTag: boolean;
+    markOnAll: boolean;
+    blade: boolean;
+  };
   animation: 'slide' | 'fade' | 'rise' | 'wipe';
   /** data-URL of an uploaded station logo (PNG with alpha recommended) */
   logoData?: string;
