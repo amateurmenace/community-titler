@@ -1,33 +1,104 @@
 {
   "name": "community-titler",
+  "productName": "Community Titler",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.0.0",
   "type": "module",
-  "description": "Beautiful, animated lower-third titles with transparent alpha backgrounds for community media stations. Batch-create from a spreadsheet; export ProRes 4444, WebM, or PNG for OBS and key/fill playout.",
+  "main": "electron/main.cjs",
+  "description": "Animated lower thirds with transparent alpha for community media stations. Type or import your titles, pick a look, export ProRes 4444 / WebM / PNG for OBS and key/fill playout. Web app, desktop app (Windows + macOS) and CLI.",
   "license": "MIT",
+  "author": "Brookline Interactive Group",
+  "homepage": "https://github.com/amateurmenace/community-titler",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/amateurmenace/community-titler.git"
+  },
   "scripts": {
     "predev": "node scripts/copy-ffmpeg.mjs",
     "dev": "vite",
     "prebuild": "node scripts/copy-ffmpeg.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "render": "node scripts/render.mjs"
+    "render": "node scripts/render.mjs",
+    "icon": "node scripts/make-icon.mjs",
+    "preapp": "node scripts/copy-ffmpeg.mjs",
+    "app": "node scripts/electron-dev.mjs",
+    "app:built": "electron .",
+    "dist": "npm run build && electron-builder --publish never",
+    "dist:win": "npm run build && electron-builder --win --publish never",
+    "dist:mac": "npm run build && electron-builder --mac --publish never"
   },
   "dependencies": {
-    "@ffmpeg/ffmpeg": "^0.12.15",
-    "@ffmpeg/util": "^0.12.2",
-    "@napi-rs/canvas": "^0.1.65",
-    "fflate": "^0.8.2",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+    "ffmpeg-static": "^5.2.0"
   },
   "devDependencies": {
     "@ffmpeg/core": "^0.12.10",
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2",
+    "@napi-rs/canvas": "^0.1.65",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "electron": "37.10.3",
+    "electron-builder": "26.15.3",
+    "fflate": "^0.8.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "typescript": "~5.6.3",
-    "vite": "^5.4.11"
+    "vite": "^5.4.11",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+  },
+  "build": {
+    "appId": "org.brooklineinteractive.communitytitler",
+    "productName": "Community Titler",
+    "copyright": "Brookline Interactive Group · MIT",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**",
+      "electron/**",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "node_modules/ffmpeg-static/**"
+    ],
+    "npmRebuild": false,
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Community Titler",
+      "artifactName": "Community-Titler-${version}-win-setup.${ext}"
+    },
+    "portable": {
+      "artifactName": "Community-Titler-${version}-win-portable.${ext}"
+    },
+    "mac": {
+      "target": ["dmg", "zip"],
+      "icon": "build/icon.png",
+      "category": "public.app-category.video",
+      "identity": null,
+      "artifactName": "Community-Titler-${version}-mac-${arch}.${ext}"
+    },
+    "dmg": {
+      "artifactName": "Community-Titler-${version}-mac-${arch}.${ext}"
+    },
+    "linux": {
+      "target": ["AppImage"],
+      "icon": "build/icon.png",
+      "category": "Video",
+      "artifactName": "Community-Titler-${version}-linux-${arch}.${ext}"
+    }
   }
 }

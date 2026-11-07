@@ -9,13 +9,13 @@
 // Options:
 //   --csv <file>         CSV/TSV of titles (same columns as the app import)
 //   --sample             use the bundled Brookline STM 2026 sample list
-//   --theme <id|file>    big | slate | townhall | minimal, or a .theme.json
+//   --theme <id|file>    big | civic | slate | townhall | minimal, or a .theme.json
 //                        exported from the app (default: big)
 //   --format <f>         prores | webm | png | pngseq   (default: prores)
 //   --out <dir>          output directory                (default: exports)
 //   --fps <n>            29.97 | 30 | 59.94 | 60         (default: 30)
 //   --size <WxH>         e.g. 1920x1080 (default) or 1280x720
-//   --in / --hold / --outdur <seconds>   timing (defaults 0.8 / 6 / 0.6)
+//   --in / --hold / --outdur <seconds>   timing (defaults 1.1 / 6 / 0.9)
 //   --logo <file>        PNG logo for themes using an image mark
 //   --only <n[,n...]>    render only these 1-based rows
 //
@@ -51,9 +51,9 @@ const fps = parseFloat(flag('fps', '30'));
 const [width, height] = flag('size', '1920x1080').split('x').map(Number);
 const settings = {
   width, height, fps,
-  inDur: parseFloat(flag('in', '0.8')),
+  inDur: parseFloat(flag('in', '1.1')),
   holdDur: parseFloat(flag('hold', '6')),
-  outDur: parseFloat(flag('outdur', '0.6')),
+  outDur: parseFloat(flag('outdur', '0.9')),
 };
 
 // ---------------------------------------------------------------- fonts ---

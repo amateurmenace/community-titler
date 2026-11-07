@@ -8,11 +8,40 @@ export interface TitleItem {
   secondary: string; // role / org line / event tag
 }
 
+export type MarkStyle = 'arches' | 'chip' | 'image' | 'none';
+
 export interface ThemeIdentity {
   org: string;
   short: string;
   url: string;
-  markStyle: 'arches' | 'chip' | 'image' | 'none';
+  markStyle: MarkStyle;
+}
+
+export type Animation = 'build' | 'slide' | 'rise' | 'fade' | 'wipe';
+
+export interface ThemeFonts {
+  /** names and show titles */
+  display: string;
+  displayWeight: number;
+  /** article titles and the sub bar */
+  text: string;
+  textWeight: number;
+  /** the station short name on the tile and the badge */
+  label: string;
+  labelWeight: number;
+}
+
+export interface ThemeColors {
+  tile: string;
+  bar: string;
+  text: string;
+  subBar: string;
+  subText: string;
+  label: string;
+  badgeBg: string;
+  badgeText: string;
+  stripes: string[];
+  archColors: string[];
 }
 
 export interface ThemeDef {
@@ -20,20 +49,8 @@ export interface ThemeDef {
   name: string;
   description?: string;
   identity: ThemeIdentity;
-  fonts: { display: string; displayWeight: number; text: string; textWeight: number };
-  colors: {
-    panel: string;
-    text: string;
-    secondary: string;
-    tag: string;
-    accent: string;
-    badgeBg: string;
-    badgeText: string;
-    stripes: string[];
-    archColors: string[];
-    archCenter: string;
-  };
-  shape: { style: 'parallelogram' | 'rounded'; skew: number };
+  fonts: ThemeFonts;
+  colors: ThemeColors;
   layout: {
     position: 'left' | 'center';
     marginX: number;
@@ -48,9 +65,9 @@ export interface ThemeDef {
     uppercaseBadge: boolean;
     uppercaseTag: boolean;
     markOnAll: boolean;
-    blade: boolean;
+    subBar: boolean;
   };
-  animation: 'slide' | 'fade' | 'rise' | 'wipe';
+  animation: Animation;
   /** data-URL of an uploaded station logo (PNG with alpha recommended) */
   logoData?: string;
 }
@@ -68,7 +85,8 @@ export interface ExportSettings {
 }
 
 export interface Project {
-  version: 1;
+  version: 2;
+  name?: string;
   items: TitleItem[];
   themeId: string;
   customThemes: ThemeDef[];
@@ -80,9 +98,9 @@ export const DEFAULT_SETTINGS: ExportSettings = {
   fps: 30,
   width: 1920,
   height: 1080,
-  inDur: 0.8,
+  inDur: 1.1,
   holdDur: 6,
-  outDur: 0.6,
+  outDur: 0.9,
 };
 
 export function newId(): string {

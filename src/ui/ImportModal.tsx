@@ -1,18 +1,21 @@
 import { useRef, useState } from 'react';
 import { importFromFile, importFromText } from '../importers';
 import type { TitleItem } from '../types';
+import { IClose, IUpload } from './icons';
 
 export default function ImportModal(props: {
   defaultTag: string;
+  hasItems: boolean;
   onClose: () => void;
   onImport: (items: TitleItem[], replace: boolean) => void;
 }) {
-  const { defaultTag, onClose, onImport } = props;
+  const { defaultTag, hasItems, onClose, onImport } = props;
   const [pending, setPending] = useState<TitleItem[]>([]);
-  const [replace, setReplace] = useState(false);
+  const [replace, setReplace] = useState(!hasItems);
   const [pasteText, setPasteText] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState('');
+  const [source, setSource] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
   const defaults = { secondary: defaultTag, type: 'speaker' };
@@ -24,6 +27,7 @@ export default function ImportModal(props: {
       const items = await importFromFile(files[0], defaults);
       if (!items.length) setError('No rows found. Check that the file has columns like: type, badge, primary, secondary — or number and title.');
       setPending(items);
+      setSource(files[0].name);
     } catch (e: any) {
       setError(`Could not read file: ${e?.message ?? e}`);
     }
@@ -34,6 +38,7 @@ export default function ImportModal(props: {
     try {
       setError('');
       setPending(importFromText(text, defaults));
+      setSource('pasted rows');
     } catch (e: any) {
       setError(String(e?.message ?? e));
     }
@@ -41,14 +46,19 @@ export default function ImportModal(props: {
 
   return (
     <div className="modalback" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal">
-        <button className="close ghost" onClick={onClose}>✕ Close</button>
-        <h2>Import titles from a spreadsheet</h2>
-        <p className="note">
-          Works with <b>CSV</b>, <b>Excel (.xlsx)</b>, or a straight <b>copy-paste from Google Sheets</b> (select the
-          cells, copy, paste below). Recognized columns: <code>type</code> (show / speaker / article),{' '}
-          <code>badge</code> (article number), <code>primary</code> (name or title), <code>secondary</code> (role / tag
-          line). Rows like <i>“5. Resolution regarding…”</i> are split into number + title automatically.
+      <div className="modal" role="dialog" aria-modal="true" aria-label="Import titles">
+        <div className="modal-head">
+          <div>
+            <span className="kicker">◆ Bulk titles</span>
+            <h2>Import from a spreadsheet</h2>
+          </div>
+          <div className="spacer" />
+          <button className="btn icon ghost" onClick={onClose} aria-label="Close"><IClose /></button>
+        </div>
+        <p className="soft" style={{ marginBottom: 14 }}>
+          Works with <b>CSV</b>, <b>Excel (.xlsx)</b>, or a straight <b>copy-paste from Google Sheets</b>. Columns:{' '}
+          <code>type</code> (show / speaker / article), <code>badge</code> (article number), <code>primary</code> (name or title),{' '}
+          <code>secondary</code> (role / tag line). Header names are flexible, and rows like <i>“5. Resolution regarding…”</i> split into number + title automatically.
         </p>
 
         <div
@@ -58,17 +68,12 @@ export default function ImportModal(props: {
           onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFiles(e.dataTransfer.files); }}
           onClick={() => fileRef.current?.click()}
         >
-          Drop a .csv / .xlsx file here, or click to choose
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".csv,.tsv,.txt,.xlsx,.xls,.ods"
-            style={{ display: 'none' }}
-            onChange={(e) => handleFiles(e.target.files)}
-          />
+          <b><IUpload style={{ verticalAlign: '-2px' }} /> Drop a .csv or .xlsx here</b>
+          or click to choose a file
+          <input ref={fileRef} type="file" accept=".csv,.tsv,.txt,.xlsx,.xls,.ods" style={{ display: 'none' }} onChange={(e) => handleFiles(e.target.files)} />
         </div>
 
-        <label className="fld">
+        <label className="fld" style={{ marginTop: 14 }}>
           <span>…or paste rows from Google Sheets / Excel</span>
           <textarea
             value={pasteText}
@@ -77,11 +82,11 @@ export default function ImportModal(props: {
           />
         </label>
 
-        {error && <p className="note" style={{ color: 'var(--err)' }}>{error}</p>}
+        {error && <div className="note-box rose" style={{ marginTop: 10 }}>{error}</div>}
 
         {pending.length > 0 && (
-          <div className="importpreview">
-            <b style={{ color: 'var(--text)' }}>{pending.length} titles ready</b>
+          <div className="importpreview" style={{ marginTop: 14 }}>
+            <b>{pending.length} titles ready</b> <span className="muted">from {source}</span>
             <table>
               <thead>
                 <tr><th>type</th><th>badge</th><th>primary</th><th>secondary</th></tr>
@@ -90,33 +95,27 @@ export default function ImportModal(props: {
                 {pending.slice(0, 6).map((i, k) => (
                   <tr key={k}><td>{i.type}</td><td>{i.badge}</td><td>{i.primary}</td><td>{i.secondary}</td></tr>
                 ))}
-                {pending.length > 6 && (
-                  <tr><td colSpan={4}>… {pending.length - 6} more</td></tr>
-                )}
+                {pending.length > 6 && <tr><td colSpan={4} className="muted">… {pending.length - 6} more</td></tr>}
               </tbody>
             </table>
           </div>
         )}
 
         <hr className="sep" />
-        <div className="row">
-          <label className="row fix" style={{ gap: 6 }}>
+        <div className="btnrow">
+          <label className="check">
             <input type="checkbox" checked={replace} onChange={(e) => setReplace(e.target.checked)} />
-            Replace current list (instead of adding)
+            Replace the current list {hasItems ? '' : '(it is empty)'}
           </label>
-          <div />
-          <button
-            className="primary fix"
-            disabled={!pending.length}
-            onClick={() => { onImport(pending, replace); onClose(); }}
-          >
-            Import {pending.length || ''} titles
+          <div className="grow" />
+          <button className="btn ghost" onClick={onClose}>Cancel</button>
+          <button className="btn lime" disabled={!pending.length} onClick={() => { onImport(pending, replace); onClose(); }}>
+            Import {pending.length || ''} title{pending.length === 1 ? '' : 's'}
           </button>
         </div>
-        <p className="note" style={{ marginBottom: 0 }}>
-          Tip: a sample file is in <code>samples/brookline-stm-2026-warrant-articles.csv</code> in the repo —
-          or <a href={`${import.meta.env.BASE_URL}samples/brookline-stm-2026-warrant-articles.csv`} download style={{ color: 'var(--yellow)' }}>download it here</a> to
-          see the format. From Google Sheets you can also use File → Download → .csv.
+        <p className="hint" style={{ marginTop: 12 }}>
+          Sample files: <a href={`${import.meta.env.BASE_URL}samples/brookline-stm-2026-warrant-articles.csv`} download>warrant articles</a> ·{' '}
+          <a href={`${import.meta.env.BASE_URL}samples/speakers-example.csv`} download>speakers</a>. From Google Sheets you can also use File → Download → .csv.
         </p>
       </div>
     </div>

@@ -1,6 +1,7 @@
 # deps / build
 node_modules/
 dist/
+release/
 
 # ffmpeg.wasm core is copied from node_modules at dev/build time
 public/ffmpeg/
