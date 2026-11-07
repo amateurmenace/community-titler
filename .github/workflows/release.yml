@@ -2,11 +2,14 @@ name: Build desktop apps
 
 # Builds the Windows installer and the macOS apps (Apple silicon + Intel).
 # - On a version tag (v2.0.0): attaches them to the GitHub Release for that tag.
-# - On manual runs: the installers are available as workflow artifacts.
+# - On pull requests and manual runs: the installers are available as
+#   workflow artifacts (nothing is published).
 
 on:
   push:
     tags: ['v*']
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
