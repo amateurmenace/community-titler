@@ -1,7 +1,25 @@
-// Loads the bundled Montserrat family (and any uploaded custom fonts) into
+// Loads the bundled font families (and any uploaded custom fonts) into
 // document.fonts so canvas text renders correctly before the first frame.
+// The same files are registered by the Node CLI (scripts/render.mjs) and by
+// the desktop app, so exports match the preview everywhere.
 
-const BUNDLED: Array<[string, number, string]> = [
+export const BUNDLED_FONTS: Array<[string, number, string]> = [
+  ['Fraunces', 700, 'Fraunces-Bold.ttf'],
+  ['Fraunces', 800, 'Fraunces-ExtraBold.ttf'],
+  ['Fraunces', 900, 'Fraunces-Black.ttf'],
+  ['DM Sans', 400, 'DMSans-Regular.ttf'],
+  ['DM Sans', 500, 'DMSans-Medium.ttf'],
+  ['DM Sans', 600, 'DMSans-SemiBold.ttf'],
+  ['DM Sans', 700, 'DMSans-Bold.ttf'],
+  ['DM Sans', 800, 'DMSans-ExtraBold.ttf'],
+  ['Inter', 400, 'Inter-Regular.ttf'],
+  ['Inter', 500, 'Inter-Medium.ttf'],
+  ['Inter', 600, 'Inter-SemiBold.ttf'],
+  ['Inter', 700, 'Inter-Bold.ttf'],
+  ['Inter', 800, 'Inter-ExtraBold.ttf'],
+  ['Inter', 900, 'Inter-Black.ttf'],
+  ['JetBrains Mono', 500, 'JetBrainsMono-Medium.ttf'],
+  ['JetBrains Mono', 700, 'JetBrainsMono-Bold.ttf'],
   ['Montserrat', 400, 'Montserrat-Regular.ttf'],
   ['Montserrat', 500, 'Montserrat-Medium.ttf'],
   ['Montserrat', 600, 'Montserrat-SemiBold.ttf'],
@@ -10,13 +28,15 @@ const BUNDLED: Array<[string, number, string]> = [
   ['Montserrat', 900, 'Montserrat-Black.ttf'],
 ];
 
+export const BUNDLED_FAMILIES = ['Fraunces', 'DM Sans', 'Inter', 'JetBrains Mono', 'Montserrat'];
+
 let loaded = false;
 
 export async function loadBundledFonts(): Promise<void> {
   if (loaded) return;
   const base = `${import.meta.env.BASE_URL}fonts/`;
   await Promise.all(
-    BUNDLED.map(async ([family, weight, file]) => {
+    BUNDLED_FONTS.map(async ([family, weight, file]) => {
       try {
         const face = new FontFace(family, `url("${base}${file}")`, { weight: String(weight) });
         await face.load();
@@ -84,5 +104,5 @@ export async function addCustomFont(file: File, family: string, weight: number):
 
 export function availableFontFamilies(): string[] {
   const customs = getCustomFonts().map((f) => f.family);
-  return ['Montserrat', ...Array.from(new Set(customs))];
+  return [...BUNDLED_FAMILIES, ...Array.from(new Set(customs)).filter((f) => !BUNDLED_FAMILIES.includes(f))];
 }

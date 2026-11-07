@@ -1,4 +1,4 @@
-// Renders deterministic frames of a title to PNG bytes (straight alpha).
+// Renders deterministic frames of a title (straight alpha).
 import { drawFrame, totalDuration, holdTime } from '../renderer/core.js';
 import type { ExportSettings, ThemeDef, TitleItem } from '../types';
 
@@ -50,7 +50,7 @@ export async function renderStill(
   return canvasPNG(canvas);
 }
 
-/** Render every frame of the in/hold/out timeline as PNG bytes. */
+/** Render every frame of the in/hold/out timeline as PNG bytes (browser encoder path). */
 export async function renderFrames(
   item: TitleItem,
   theme: ThemeDef,
@@ -72,4 +72,46 @@ export async function renderFrames(
     if (i % 20 === 19) await new Promise((r) => setTimeout(r, 0)); // keep UI alive
   }
   return frames;
+}
+
+/**
+ * Stream every frame as raw RGBA bytes (desktop encoder path — the bytes are
+ * piped straight into a native ffmpeg, no PNG round-trip).
+ */
+export async function forEachFrameRGBA(
+  item: TitleItem,
+  theme: ThemeDef,
+  settings: ExportSettings,
+  assets: RenderAssets,
+  fn: (rgba: Uint8Array, index: number, total: number) => Promise<void>,
+  isCancelled?: () => boolean,
+): Promise<void> {
+  const total = frameCount(settings);
+  const canvas = makeCanvas(settings.width, settings.height);
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+  for (let i = 0; i < total; i++) {
+    if (isCancelled?.()) throw new Error('cancelled');
+    drawFrame(ctx, i / settings.fps, item, theme, { ...settings, assets });
+    const img = ctx.getImageData(0, 0, settings.width, settings.height);
+    await fn(new Uint8Array(img.data.buffer, img.data.byteOffset, img.data.byteLength), i, total);
+  }
+}
+
+/** Render every frame as PNG bytes one at a time (desktop PNG-sequence path). */
+export async function forEachFramePNG(
+  item: TitleItem,
+  theme: ThemeDef,
+  settings: ExportSettings,
+  assets: RenderAssets,
+  fn: (png: Uint8Array, index: number, total: number) => Promise<void>,
+  isCancelled?: () => boolean,
+): Promise<void> {
+  const total = frameCount(settings);
+  const canvas = makeCanvas(settings.width, settings.height);
+  const ctx = canvas.getContext('2d')!;
+  for (let i = 0; i < total; i++) {
+    if (isCancelled?.()) throw new Error('cancelled');
+    drawFrame(ctx, i / settings.fps, item, theme, { ...settings, assets });
+    await fn(await canvasPNG(canvas), i, total);
+  }
 }

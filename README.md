@@ -1,43 +1,57 @@
 # Community Titler
 
-**Beautiful, animated lower-third titles with transparent alpha backgrounds — built for community media stations.**
+**Animated lower thirds with real transparency — built for community media stations.**
 
-Type your titles in (or import a whole spreadsheet), pick a style, and export broadcast-ready graphics with real alpha channels for OBS, vMix, CasparCG, NLEs, or a key/fill DeckLink output into your video switcher.
+Type your titles in (or import a whole spreadsheet), pick a look, and export broadcast-ready graphics with alpha channels for OBS, vMix, CasparCG, your NLE, or a key/fill DeckLink output into a video switcher.
 
-Made by [Brookline Interactive Group](https://brooklineinteractive.org) for every community access station. Free, open source (MIT), and it runs entirely in your browser — nothing is uploaded anywhere.
+Made by [Brookline Interactive Group](https://brooklineinteractive.org) for every community access station. Free, open source (MIT). Runs as a **desktop app (Windows + macOS)**, in your **browser**, or from the **command line** — and nothing is ever uploaded anywhere.
 
 ![Community Titler](docs/examples/app.png)
 
+## Get it
+
+| | |
+|---|---|
+| **Windows** | [`Community-Titler-<version>-win-setup.exe`](https://github.com/amateurmenace/community-titler/releases/latest) (installer) or the `-win-portable.exe` (no install) |
+| **macOS, Apple silicon** | [`Community-Titler-<version>-mac-arm64.dmg`](https://github.com/amateurmenace/community-titler/releases/latest) |
+| **macOS, Intel** | [`Community-Titler-<version>-mac-x64.dmg`](https://github.com/amateurmenace/community-titler/releases/latest) |
+| **Browser (no install)** | **https://amateurmenace.github.io/community-titler/** |
+
+The desktop app bundles its own ffmpeg, so ProRes and WebM exports take seconds per title instead of the browser's slower in-page encoder.
+
+> **First launch on macOS:** the app is not notarized, so macOS will say it “cannot be opened”. Right-click the app → **Open** → **Open** once (on macOS 15+: System Settings → Privacy & Security → **Open Anyway**). On Windows, SmartScreen may ask you to click **More info → Run anyway**.
+
 ## What it makes
 
-Three kinds of lower thirds, each with an animate-in / hold / animate-out timeline:
+Three kinds of lower thirds. Each one *builds* on screen — the station tile pops in, the arches draw on, the name bar extends out of the tile, the name wipes in, the brand stripe draws, and the role bar slides out underneath — then holds, then reverses out.
 
 | Type | For | Example |
 |---|---|---|
-| **Show identifier** | Opening a program — event title plus your station name and URL | *Brookline Special Town Meeting 2026 · Brookline Interactive Group · brooklineinteractive.org* |
-| **Speaker ID** | Identifying who's talking — name + role | *Jordan Example · Town Moderator* |
-| **Warrant article** | Dense info cards — numbered badge + full article title + meeting tag | *ARTICLE 7 · Create a new Section 8.XX of the General By-Laws banning cryptocurrency kiosks…* |
+| **Speaker** | Who's talking — name + role | *Jordan Example · Town Moderator* |
+| **Show ID** | Opening a program — title + your station line | *Brookline Special Town Meeting 2026 · Brookline Interactive Group · brooklineinteractive.org* |
+| **Article** | Dense info cards — number badge + full article title + meeting tag | *Article 7 · Create a new Section 8.XX of the General By-Laws banning cryptocurrency kiosks…* |
 
 ![Examples](docs/examples/montage.png)
 
-## Quick start
+## Three steps
 
-**Use it in your browser (no install):** open the hosted app → **https://amateurmenace.github.io/community-titler/**
+1. **Titles** — add speakers, show IDs and articles one at a time, or **Import spreadsheet** (CSV, Excel, or paste straight from Google Sheets). Click any title to preview and edit it.
+2. **Look** — pick a built-in look, or **Duplicate & customize** it: station name and mark, logo, fonts, colors, corner radius, position, animation.
+3. **Export** — choose a format, timing and a folder, tick the titles you want, and **Export**. Press <kbd>Space</kbd> anywhere to play the preview.
 
-**Or run it locally:**
+Projects auto-save in the app; **Project → Save project file** writes a portable `.titler.json` you can archive or move between machines.
 
-```bash
-git clone https://github.com/amateurmenace/community-titler.git
-cd community-titler
-npm install
-npm run dev
-```
+### Regenerating the Brookline town meeting titles
 
-The app opens with a loaded sample project: the full warrant for the Brookline Special Town Meeting (November 2026) — 21 articles plus the show identifier — so you can hit **Export all** and see the whole pipeline work.
+The app ships with the full warrant for the **Brookline Special Town Meeting (November 2026)** — the show ID plus all 21 articles. To regenerate the set at any time:
+
+1. **Project → Load Brookline Town Meeting 2026** (the sample replaces the title list; your look and export settings stay).
+2. Make sure the look is **BIG — Brookline Interactive**.
+3. **Export → Export all 22 titles.**
+
+The same list is in [`public/samples/brookline-stm-2026-warrant-articles.csv`](public/samples/brookline-stm-2026-warrant-articles.csv) for the CLI (`npm run render -- --sample`). When the next warrant is posted, paste the article list into a sheet and import it — rows like `5. Resolution regarding…` are split into badge + title automatically.
 
 ## Bulk titles from a spreadsheet
-
-This is the headline feature: make *many* titles at once.
 
 1. Put your titles in Google Sheets, Excel, or any CSV with columns:
 
@@ -47,21 +61,21 @@ This is the headline feature: make *many* titles at once.
    | `speaker` | | Jordan Example | Town Moderator |
    | `article` | Article 5 | Resolution urging the Select Board… | Special Town Meeting · November 2026 |
 
-2. In the app: **Import spreadsheet** → drop the `.csv`/`.xlsx`, or just **copy-paste the cells straight from Google Sheets**.
-3. **Export all.**
+2. **Titles → Import spreadsheet** → drop the `.csv`/`.xlsx`, or paste the cells.
+3. **Export.**
 
-Friendly details: header names are flexible (`name`, `title`, `number`, `role`… all recognized), plain numbers become “Article N”, and rows like `5. Resolution regarding…` are split into badge + title automatically. Sample files live in [`public/samples/`](public/samples/).
+Header names are flexible (`name`, `title`, `number`, `role`… are all recognized), plain numbers become “Article N”, and a sheet with just two columns is read as name + role. Sample files live in [`public/samples/`](public/samples/).
 
 ## Exporting alpha for OBS and key/fill
 
-Pick a format in the export bar — every one carries a real alpha channel:
+Every format carries a real alpha channel:
 
-- **ProRes 4444 (.mov)** — the broadcast workhorse. Biggest files, flawless alpha, decodes effortlessly in OBS, and encodes fast even in the browser (~30 s per title). **Recommended for key/fill playout.**
-- **WebM (.webm)** — small files, great for OBS overlay scenes. In-browser encoding is slow (VP8, ~2 s per frame); the CLI below renders WebM (VP9) far faster.
+- **ProRes 4444 (.mov)** — the broadcast workhorse. Big files, flawless alpha, decodes effortlessly in OBS. **Recommended for key/fill playout.**
+- **WebM (.webm)** — small files, great for OBS overlay scenes.
 - **PNG still (.png)** — one transparent frame per title, instantly.
-- **PNG sequence (.zip)** — every frame as numbered PNGs for NLEs / CasparCG.
+- **PNG sequence** — every frame as numbered PNGs (a folder from the desktop app, a `.zip` from the browser) for NLEs and CasparCG.
 
-In Chrome or Edge you'll be asked for an output folder and files are written straight into it; other browsers fall back to one download per file.
+Timing defaults to a 1.1 s build, a 6 s hold and a 0.9 s out. For a key/fill feed you cut away from by hand, make the hold long.
 
 ### OBS setup
 
@@ -76,17 +90,15 @@ In Chrome or Edge you'll be asked for an output folder and files are written str
 
 Tip: for key/fill, build an OBS scene containing *only* the title graphics (transparent everywhere else) and route that scene's Decklink output.
 
-## Styles & making it yours
+## Looks & making it yours
 
-Four built-in styles ship today, including **BIG — Brookline Interactive** (navy, rainbow arches, stripes, Gotham-style Montserrat type), plus neutral **Broadcast Slate**, civic **Town Hall**, and **Minimal Light**.
+Five built-in looks: **BIG — Brookline Interactive** (navy tiles, rainbow arches, tri-color stripe, Fraunces serif names), **Civic Green** (the [Community AI Project](https://github.com/amateurmenace/community-ai-project) palette — forest green, lime, cream), neutral **Broadcast Slate**, civic **Town Hall**, and **Minimal Light**.
 
-To rebrand for your station: **Duplicate & customize** in the Style panel → set your station name, short mark, URL, colors, corner radius, animation (slide / rise / wipe / fade), upload your **logo PNG**, even add your own **font file**. Then **Export** the style as a `.theme.json` to share with your team — or open a PR to add your station's theme as a built-in!
+To rebrand for your station: **Look → Duplicate & customize** → set your station name, short mark and URL, upload a **logo PNG** for the tile, pick fonts (Fraunces, DM Sans, Inter, JetBrains Mono and Montserrat are bundled; add your own `.ttf`), set every color, and choose the motion. **Export** the look as a `.theme.json` to share with your team — or open a PR to add your station's look as a built-in.
 
-Projects auto-save in your browser; **Save project file** writes a portable `.json` you can archive or move between machines.
+## CLI batch rendering
 
-## CLI batch rendering (fast, optional)
-
-If you have [ffmpeg](https://ffmpeg.org) installed, the CLI renders the same pixels much faster than the in-browser encoder:
+If you have [ffmpeg](https://ffmpeg.org) on your PATH, the CLI renders the same pixels as the app:
 
 ```bash
 npm run render -- --csv mytitles.csv --format prores --out exports/tonight
@@ -100,12 +112,23 @@ Formats: `prores`, `webm`, `png`, `pngseq`. Run `npm run render -- --help` for e
 
 ## For developers
 
-- Vite + React + TypeScript. The actual drawing lives in [`src/renderer/core.js`](src/renderer/core.js) — a pure, dependency-free canvas renderer used identically by the browser preview, the in-browser ffmpeg.wasm encoder, and the Node CLI, so what you preview is exactly what exports.
-- In-browser video encoding is ffmpeg.wasm (single-threaded core, served same-origin — works offline and on GitHub Pages).
-- `npm run build` produces a fully static `dist/` you can host anywhere; pushes to `main` auto-deploy to GitHub Pages via [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml).
+```bash
+git clone https://github.com/amateurmenace/community-titler.git
+cd community-titler
+npm install
+npm run dev        # web app at http://localhost:5173
+npm run app        # the desktop app, hot-reloading against the dev server
+npm run dist:win   # Windows installer + portable exe  → release/
+npm run dist:mac   # macOS dmg + zip (run on a Mac)     → release/
+```
 
-PRs welcome — new themes, new title layouts, translations, CasparCG/HTML output, whatever your station needs.
+- Vite + React + TypeScript. The drawing lives in [`src/renderer/core.js`](src/renderer/core.js) — a pure, dependency-free canvas renderer used identically by the preview, the desktop and in-browser exporters, and the Node CLI, so what you preview is exactly what exports. Looks are plain data in [`src/renderer/themes.js`](src/renderer/themes.js).
+- The app chrome follows the Community AI Project's **Civic UI** design system (cream canvas, deep green, lime, hard offset shadows, Inter + JetBrains Mono) — tokens in [`src/styles.css`](src/styles.css).
+- The desktop shell is [`electron/main.cjs`](electron/main.cjs) + [`electron/preload.cjs`](electron/preload.cjs); it streams raw frames into a bundled ffmpeg (`ffmpeg-static`). The browser build encodes with ffmpeg.wasm (single-threaded core, served same-origin — works offline and on GitHub Pages).
+- **Releasing:** bump `version` in `package.json`, then push a tag — `git tag v2.0.1 && git push --tags`. The [`Build desktop apps`](.github/workflows/release.yml) workflow builds the Windows installer and both macOS apps and attaches them to the GitHub Release. Pushes to `main` deploy the web app to GitHub Pages.
+
+PRs welcome — new looks, new title layouts, translations, CasparCG/HTML output, whatever your station needs.
 
 ## License
 
-MIT. Bundled [Montserrat](https://github.com/JulietaUla/Montserrat) fonts are SIL OFL 1.1. The BIG style is included with Brookline Interactive Group's blessing; your station's logo and branding remain, of course, your own.
+MIT. Bundled fonts — [Fraunces](https://github.com/undercasetype/Fraunces), [DM Sans](https://github.com/googlefonts/dm-fonts), [Inter](https://github.com/rsms/inter), [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono) and [Montserrat](https://github.com/JulietaUla/Montserrat) — are SIL OFL 1.1 (licenses in `public/fonts/`). The BIG look is included with Brookline Interactive Group's blessing; your station's logo and branding remain, of course, your own.
