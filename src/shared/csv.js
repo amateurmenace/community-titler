@@ -119,8 +119,32 @@ export function slugify(s, max = 48) {
     .replace(/-+$/g, '') || 'untitled';
 }
 
-export function itemFileBase(item, index) {
-  const n = String(index + 1).padStart(2, '0');
-  const label = item.type === 'article' && item.badge ? `${item.badge} ${item.primary}` : item.primary;
-  return `${n}_${item.type}_${slugify(label)}`;
+/** "Article 7" / "ART 12A" / "7" → "07" / "12A"; anything else → null */
+export function badgeNumber(badge) {
+  const m = String(badge ?? '').trim().match(/(\d+)([A-Za-z]?)$/);
+  return m ? m[1].padStart(2, '0') + m[2].toUpperCase() : null;
+}
+
+function rawFileBase(item) {
+  if (item.type === 'article') {
+    const n = badgeNumber(item.badge);
+    return n ? `Article-${n}_${slugify(item.primary)}` : `Article_${slugify(`${item.badge ?? ''} ${item.primary}`)}`;
+  }
+  return `${item.type === 'show' ? 'Show' : 'Speaker'}_${slugify(item.primary)}`;
+}
+
+/**
+ * File name (without extension) for a title. Articles are named by their
+ * article number so the files line up with the warrant ("Article-07_…");
+ * show IDs and speakers by what they say. Pass the whole project list as
+ * `all` so two titles that would collide get "-2", "-3" suffixes.
+ */
+export function itemFileBase(item, all = []) {
+  const base = rawFileBase(item);
+  let dup = 0;
+  for (const other of all) {
+    if (other === item || (item.id && other.id === item.id)) break;
+    if (rawFileBase(other) === base) dup++;
+  }
+  return dup ? `${base}-${dup + 1}` : base;
 }

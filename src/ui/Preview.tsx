@@ -140,7 +140,7 @@ export default function Preview(props: {
           >
             {items.map((i, k) => (
               <option key={i.id} value={i.id}>
-                {k + 1}. {TYPE_LABEL[i.type]} — {i.type === 'article' && i.badge ? `${i.badge} · ` : ''}{i.primary || '(empty)'}
+                {i.type === 'article' && i.badge ? i.badge : TYPE_LABEL[i.type]} — {i.primary || '(empty)'}
               </option>
             ))}
           </select>

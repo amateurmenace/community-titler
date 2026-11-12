@@ -139,7 +139,7 @@ console.log(`Theme: ${theme.name} · timeline ${settings.inDur}s in / ${settings
 
 for (let i = 0; i < items.length; i++) {
   const item = items[i];
-  const base = itemFileBase(item, i);
+  const base = itemFileBase(item, items);
 
   if (format === 'png') {
     drawFrame(ctx, holdTime(settings), item, theme, { ...settings, assets });

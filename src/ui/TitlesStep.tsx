@@ -1,8 +1,16 @@
-import type { ItemType, TitleItem } from '../types';
+import type { ItemSize, ItemType, TitleItem } from '../types';
+import { badgeNumber } from '../shared/csv.js';
 import { IArrowRight, ICopy, IDown, IPlus, ISparkle, ITrash, IUp, IUpload } from './icons';
 
 const TYPE_LABEL: Record<ItemType, string> = { show: 'Show ID', speaker: 'Speaker', article: 'Article' };
 const TYPE_TONE: Record<ItemType, string> = { show: 'sky', speaker: '', article: 'purple' };
+const SIZE_LABEL: Record<ItemSize, string> = { auto: 'Auto', standard: 'Standard', large: 'Large' };
+
+/** "Article 7" → "7", "Article 12A" → "12A", anything without a number → null */
+const artNo = (badge: string): string | null => {
+  const n = badgeNumber(badge);
+  return n ? n.replace(/^0+(?=\d)/, '') : null;
+};
 
 export function TitlesRail(props: {
   items: TitleItem[];
@@ -39,8 +47,9 @@ export function TitlesRail(props: {
         </div>
       ) : (
         <div className="titlelist">
-          {items.map((item, idx) => {
+          {items.map((item) => {
             const sel = item.id === selectedId;
+            const no = item.type === 'article' ? artNo(item.badge) : null;
             return (
               <div
                 key={item.id}
@@ -52,14 +61,16 @@ export function TitlesRail(props: {
               >
                 <div className="lead">
                   <span className={`badge ${TYPE_TONE[item.type]}`}>{TYPE_LABEL[item.type]}</span>
-                  <span className="idx">{String(idx + 1).padStart(2, '0')}</span>
+                  {no && <span className="artno">{no}</span>}
                 </div>
                 <div className="main">
                   <div className="primary">
-                    {item.type === 'article' && item.badge ? <span className="muted">{item.badge} · </span> : null}
+                    {item.type === 'article' && item.badge && !no ? <span className="muted">{item.badge} · </span> : null}
                     {item.primary || <span className="muted">(empty)</span>}
                   </div>
-                  {item.secondary && <div className="secondary">{item.secondary}</div>}
+                  {(item.secondary || item.size === 'large') && (
+                    <div className="secondary">{item.size === 'large' ? 'Large · ' : ''}{item.secondary}</div>
+                  )}
                 </div>
               </div>
             );
@@ -153,7 +164,7 @@ export function TitleEditor(props: {
               style={{ fontFamily: 'var(--font)', fontSize: 15, fontWeight: 600, minHeight: 64 }}
               value={item.primary}
               onChange={(e) => onPatch({ primary: e.target.value })}
-              placeholder="Full title of the warrant article (wraps to up to three lines)"
+              placeholder="Full title of the warrant article (wraps to three lines, four in Large)"
             />
           ) : (
             <input
@@ -178,6 +189,27 @@ export function TitleEditor(props: {
           </label>
         )}
       </div>
+
+      <div className="grid2" style={{ marginTop: 14 }}>
+        <div className="fld">
+          <span className="fldlabel">Size on screen</span>
+          <div className="typepick" role="radiogroup" aria-label="Size on screen">
+            {(['auto', 'standard', 'large'] as ItemSize[]).map((s) => (
+              <button key={s} className={(item.size ?? 'auto') === s ? 'on' : ''} onClick={() => onPatch({ size: s })} role="radio" aria-checked={(item.size ?? 'auto') === s}>
+                {SIZE_LABEL[s]}
+              </button>
+            ))}
+          </div>
+        </div>
+        <label className="fld">
+          <span>Text size <span className="val">{Math.round((item.textScale ?? 1) * 100)}%</span></span>
+          <input type="range" min={0.8} max={1.4} step={0.05} value={item.textScale ?? 1} onChange={(e) => onPatch({ textScale: +e.target.value })} />
+        </label>
+      </div>
+      <p className="hint" style={{ marginTop: 8 }}>
+        <b>Large</b> runs the bars across the frame with bigger type and room for an extra line — the right choice for long warrant articles.
+        <b> Auto</b> switches to it on its own when a title would otherwise come out small. Fonts and the sizes for a whole look live in the Look step.
+      </p>
 
       <hr className="sep" />
       <div className="btnrow">

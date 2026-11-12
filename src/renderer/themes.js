@@ -12,9 +12,9 @@ export const BUILT_IN_THEMES = [
   {
     id: 'big',
     name: 'BIG — Brookline Interactive',
-    description: 'Navy tile with the rainbow arches, a tri-color stripe and a white role bar. Fraunces serif names, DM Sans text.',
+    description: 'Navy tile with the rainbow arches over a big Montserrat BIG, a tri-color stripe and a white role bar. Fraunces serif names, DM Sans text.',
     identity: { org: 'Brookline Interactive Group', short: 'BIG', url: 'brooklineinteractive.org', markStyle: 'arches' },
-    fonts: { display: 'Fraunces', displayWeight: 800, text: 'DM Sans', textWeight: 600, label: 'DM Sans', labelWeight: 700 },
+    fonts: { display: 'Fraunces', displayWeight: 800, text: 'DM Sans', textWeight: 600, label: 'Montserrat', labelWeight: 900 },
     colors: {
       tile: '#262262',
       bar: '#262262',
@@ -157,10 +157,14 @@ export function normalizeTheme(t) {
   if (!Array.isArray(out.colors.archColors) || !out.colors.archColors.length) out.colors.archColors = out.colors.stripes.length ? out.colors.stripes : ['#C74C9C', '#F68B1F', '#FEEE32'];
 
   const f = { ...(t.fonts ?? {}) };
+  const k = (v) => (Number.isFinite(+v) && +v > 0 ? +v : 1);
   out.fonts = {
     display: f.display ?? 'Fraunces', displayWeight: f.displayWeight ?? 800,
     text: f.text ?? 'DM Sans', textWeight: f.textWeight ?? 600,
     label: f.label ?? f.text ?? 'DM Sans', labelWeight: f.labelWeight ?? 700,
+    // size multipliers (1 = the look's default sizes)
+    displaySize: k(f.displaySize), textSize: k(f.textSize), subSize: k(f.subSize),
+    labelSize: k(f.labelSize), badgeSize: k(f.badgeSize),
   };
   out.identity = { org: 'Your Community Station', short: 'TV', url: '', markStyle: 'chip', ...(t.identity ?? {}) };
   out.flags = { ...FLAGS, ...(t.flags ?? {}) };

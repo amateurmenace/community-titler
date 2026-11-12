@@ -13,7 +13,7 @@
 // extends out of the tile, the name wipes in, the stripe draws, the sub bar
 // wipes out underneath and its text settles. The out reverses the build.
 
-/** @typedef {{id?:string,type:'show'|'speaker'|'article',badge:string,primary:string,secondary:string}} TitleItem */
+/** @typedef {{id?:string,type:'show'|'speaker'|'article',badge:string,primary:string,secondary:string,size?:'auto'|'standard'|'large',textScale?:number}} TitleItem */
 
 // ---------------------------------------------------------------- easing ---
 
@@ -120,9 +120,9 @@ function fitLines(ctx, text, opts) {
     if (line) lines.push(line);
     if (!ok || lines.length > maxLines) continue;
     if (lines.some((l) => measure(ctx, l) > maxWidth) && size > minSize) continue;
-    return { size, lines: lines.map((l) => ({ text: l, width: measure(ctx, l) })) };
+    return { size, lines: lines.map((l) => ({ text: l, width: measure(ctx, l) })), truncated: false };
   }
-  // Last resort: hard-clip at min size
+  // Last resort: hard-clip at min size (and say so, so the layout can go large)
   setFont(ctx, weight, minSize, family);
   const lines = [];
   let line = '';
@@ -132,7 +132,8 @@ function fitLines(ctx, text, opts) {
     else { lines.push(line); line = word; if (lines.length >= maxLines) break; }
   }
   if (line && lines.length < maxLines) lines.push(line);
-  return { size: minSize, lines: lines.map((l) => ({ text: l, width: measure(ctx, l) })) };
+  const used = lines.reduce((n, l) => n + l.split(' ').length, 0);
+  return { size: minSize, lines: lines.map((l) => ({ text: l, width: measure(ctx, l) })), truncated: used < words.length };
 }
 
 /** Split "Article 7" / "ART 12A" / "7" into {word, num}; anything else → {single}. */
@@ -194,15 +195,21 @@ function computeLayout(ctx, item, theme, opts) {
   const FL = theme.flags;
   const id = theme.identity;
 
+  // Size multipliers: per look (fonts.*Size, 1 = default) and per title
+  // (textScale nudges the main text only).
+  const kDisplay = (F.displaySize ?? 1) * (item.textScale ?? 1);
+  const kText = (F.textSize ?? 1) * (item.textScale ?? 1);
+  const kSub = F.subSize ?? 1;
+  const kLabel = F.labelSize ?? 1;
+  const kBadge = F.badgeSize ?? 1;
+
   const mx = (L.marginX ?? 128) * (H / 1080);
   const my = (L.marginY ?? 104) * (H / 1080);
   const r = (L.cornerRadius ?? 14) * u;
 
   const TILE = 140 * u;
   const GAP = 10 * u;
-  const BAR_H = 96 * u;
   const STRIPE_H = 6 * u;
-  const SUB_H = 46 * u;
   const PAD_X = 38 * u;
   const SUB_PAD_X = 34 * u;
 
@@ -212,7 +219,7 @@ function computeLayout(ctx, item, theme, opts) {
   const showTile = markStyle !== 'none' && (type === 'show' || FL.markOnAll !== false);
 
   /** @type {any} */
-  const plan = { u, W, H, r, type, tile: null, badge: null, bar: null, stripe: null, sub: null };
+  const plan = { u, W, H, r, type, large: false, tile: null, badge: null, bar: null, stripe: null, sub: null };
 
   // --- badge (article number) -------------------------------------------
   let badge = null;
@@ -220,13 +227,13 @@ function computeLayout(ctx, item, theme, opts) {
     const raw = FL.uppercaseBadge !== false ? item.badge.toUpperCase() : item.badge;
     const parts = splitBadge(raw);
     if (parts.single !== undefined) {
-      const size = 24 * u;
+      const size = 24 * u * kBadge;
       setFont(ctx, F.labelWeight ?? 700, size, F.label ?? F.text);
       const tw = measureTracked(ctx, parts.single, 1.5 * u);
       badge = { single: parts.single, size, tracking: 1.5 * u, w: Math.max(TILE * 0.8, tw + 36 * u) };
     } else {
-      const wordSize = 15 * u;
-      const numSize = parts.num.length > 2 ? 50 * u : 58 * u;
+      const wordSize = 15 * u * kBadge;
+      const numSize = (parts.num.length > 2 ? 50 : 58) * u * kBadge;
       setFont(ctx, F.labelWeight ?? 700, wordSize, F.label ?? F.text);
       const ww = parts.word ? measureTracked(ctx, parts.word, 2.2 * u) : 0;
       setFont(ctx, 800, numSize, F.label ?? F.text);
@@ -243,44 +250,52 @@ function computeLayout(ctx, item, theme, opts) {
   if (badge) x += badge.w + GAP;
   const barsX = x;
 
-  // maxWidthFrac is how far across the frame the bars may reach; articles
-  // carry long titles, so they get an extra fifth of the frame.
-  const frac = Math.min(0.94, (L.maxWidthFrac ?? 0.6) + (type === 'article' ? 0.2 : 0));
-  const availW = Math.max(240 * u, W * frac - barsX);
-
   // --- name bar content --------------------------------------------------
-  let lines = [];
-  let size = 0;
-  let family = F.display;
-  let weight = F.displayWeight;
-  let lineH = 0;
-  let barH = BAR_H;
-
-  if (type === 'speaker') {
-    const fit = fitLines(ctx, item.primary, {
-      family: F.display, weight: F.displayWeight, maxSize: 60 * u, minSize: 38 * u,
-      maxWidth: availW - PAD_X * 2, maxLines: 1,
-    });
-    lines = fit.lines; size = fit.size; lineH = size * 1.1;
-  } else if (type === 'show') {
-    const fit = fitLines(ctx, item.primary, {
-      family: F.display, weight: F.displayWeight, maxSize: 56 * u, minSize: 34 * u,
-      maxWidth: availW - PAD_X * 2, maxLines: 2,
-    });
-    lines = fit.lines; size = fit.size; lineH = size * 1.12;
-  } else {
-    family = F.text; weight = 600;
-    const fit = fitLines(ctx, item.primary, {
-      family: F.text, weight: 600, maxSize: 36 * u, minSize: 24 * u,
-      maxWidth: availW - PAD_X * 2, maxLines: 3,
-    });
-    lines = fit.lines; size = fit.size; lineH = size * 1.2;
-  }
-  if (!lines.length) lines = [{ text: '', width: 0 }];
-  const padY = Math.max(22 * u, (BAR_H - lineH) / 2);
-  barH = Math.max(BAR_H, padY * 2 + lines.length * lineH);
-  const textW = Math.max(...lines.map((l) => l.width));
-  const barW = Math.max(220 * u, textW + PAD_X * 2);
+  // Two sizes. Standard keeps the bars inside maxWidthFrac of the frame
+  // (articles get an extra fifth). Large runs the bars out to a matching
+  // right margin, raises the type sizes and allows an extra line — for the
+  // long warrant articles that would otherwise shrink into illegibility.
+  // 'auto' tries standard first and goes large when the text came out small.
+  const measureBar = (large) => {
+    const frac = Math.min(0.94, (L.maxWidthFrac ?? 0.6) + (type === 'article' ? 0.2 : 0));
+    const availW = Math.max(240 * u, (large ? W - mx : W * frac) - barsX);
+    const BAR_H = (large ? 108 : 96) * u;
+    let family = F.display, weight = F.displayWeight, fit, lineK, floor;
+    if (type === 'speaker') {
+      fit = fitLines(ctx, item.primary, {
+        family, weight, maxSize: (large ? 72 : 60) * u * kDisplay, minSize: (large ? 44 : 38) * u * kDisplay,
+        maxWidth: availW - PAD_X * 2, maxLines: large ? 2 : 1,
+      });
+      lineK = 1.1; floor = 50 * u * kDisplay;
+    } else if (type === 'show') {
+      fit = fitLines(ctx, item.primary, {
+        family, weight, maxSize: (large ? 66 : 56) * u * kDisplay, minSize: (large ? 40 : 34) * u * kDisplay,
+        maxWidth: availW - PAD_X * 2, maxLines: 2,
+      });
+      lineK = 1.12; floor = 48 * u * kDisplay;
+    } else {
+      family = F.text; weight = F.textWeight ?? 600;
+      fit = fitLines(ctx, item.primary, {
+        family, weight, maxSize: (large ? 46 : 36) * u * kText, minSize: (large ? 32 : 24) * u * kText,
+        maxWidth: availW - PAD_X * 2, maxLines: large ? 4 : 3,
+      });
+      lineK = 1.2; floor = 35 * u * kText; // i.e. go large as soon as standard has to shrink
+    }
+    const lines = fit.lines.length ? fit.lines : [{ text: '', width: 0 }];
+    const lineH = fit.size * lineK;
+    const padY = Math.max((large ? 26 : 22) * u, (BAR_H - lineH) / 2);
+    const barH = Math.max(BAR_H, padY * 2 + lines.length * lineH);
+    const textW = Math.max(...lines.map((l) => l.width));
+    const barW = Math.max(220 * u, textW + PAD_X * 2);
+    const cramped = fit.truncated || fit.size < floor;
+    return { large, availW, lines, size: fit.size, family, weight, lineH, padY, barH, barW, cramped };
+  };
+  const sizeMode = item.size ?? 'auto';
+  let bar = measureBar(sizeMode === 'large');
+  if (sizeMode === 'auto' && bar.cramped) bar = measureBar(true);
+  const large = bar.large;
+  plan.large = large;
+  const { availW, lines, size, family, weight, lineH, padY, barH, barW } = bar;
 
   // --- sub bar -----------------------------------------------------------
   let subText = String(item.secondary ?? '').trim();
@@ -290,9 +305,10 @@ function computeLayout(ctx, item, theme, opts) {
   if (type === 'article' && FL.uppercaseTag) subText = subText.toUpperCase();
   let sub = null;
   if (subText && FL.subBar !== false) {
+    const SUB_H = (large ? 52 : 46) * u * Math.max(0.8, Math.min(1.5, kSub));
     const tracking = type === 'article' && FL.uppercaseTag ? 1.4 * u : 0;
     const fit = fitLines(ctx, subText, {
-      family: F.text, weight: F.textWeight, maxSize: 26 * u, minSize: 18 * u,
+      family: F.text, weight: F.textWeight, maxSize: (large ? 28 : 26) * u * kSub, minSize: 18 * u * kSub,
       maxWidth: availW - SUB_PAD_X * 2, maxLines: 1,
     });
     const text = fit.lines[0]?.text ?? '';
@@ -326,12 +342,20 @@ function computeLayout(ctx, item, theme, opts) {
       const s = Math.min(bw / img.width, bh / img.height);
       mark.img = img; mark.w = img.width * s; mark.h = img.height * s;
     } else if (markStyle === 'arches') {
+      // The rainbow over the short name set big and tight — as in the BIG
+      // logo, the word runs a touch wider than the arches.
       mark.R = 48 * u; mark.sw = 13 * u;
-      mark.labelSize = 27 * u; mark.tracking = 2.5 * u;
+      mark.labelSize = 56 * u * kLabel; mark.tracking = 1 * u;
       setFont(ctx, F.labelWeight ?? 700, mark.labelSize, F.label ?? F.text);
       mark.labelW = measureTracked(ctx, mark.short, mark.tracking);
+      const maxW = TILE - 18 * u;
+      if (mark.labelW > maxW) {
+        mark.labelSize *= maxW / mark.labelW;
+        setFont(ctx, F.labelWeight ?? 700, mark.labelSize, F.label ?? F.text);
+        mark.labelW = measureTracked(ctx, mark.short, mark.tracking);
+      }
     } else { // chip — the short name, big
-      mark.labelSize = mark.short.length > 3 ? 34 * u : 44 * u;
+      mark.labelSize = (mark.short.length > 3 ? 34 : 44) * u * kLabel;
       mark.tracking = 1.5 * u;
       setFont(ctx, F.labelWeight ?? 700, mark.labelSize, F.label ?? F.text);
       mark.labelW = measureTracked(ctx, mark.short, mark.tracking);
@@ -492,7 +516,9 @@ export function drawFrame(ctx, t, item, theme, opts) {
     if (m.style === 'image') {
       ctx.drawImage(m.img, cx - m.w / 2, cy - m.h / 2, m.w, m.h);
     } else if (m.style === 'arches') {
-      const blockH = m.R + 12 * u + m.labelSize * 0.74;
+      const gap = 8 * u;
+      const capH = m.labelSize * 0.72;
+      const blockH = m.R + gap + capH;
       const top = cy - blockH / 2;
       const baseY = top + m.R;
       drawArches(ctx, cx, baseY, m.R, C.archColors ?? C.stripes ?? ['#fff'], m.sw, st.arcs);
@@ -501,7 +527,7 @@ export function drawFrame(ctx, t, item, theme, opts) {
         ctx.globalAlpha *= st.label;
         setFont(ctx, labelWeight, m.labelSize, labelFont);
         ctx.fillStyle = C.label ?? C.text;
-        const ly = baseY + 12 * u + m.labelSize * 0.74 + 6 * u * (1 - st.label);
+        const ly = baseY + gap + capH + 6 * u * (1 - st.label);
         drawTracked(ctx, m.short, cx - m.labelW / 2, ly, m.tracking);
         ctx.restore();
       }

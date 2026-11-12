@@ -29,14 +29,14 @@ Three kinds of lower thirds. Each one *builds* on screen — the station tile po
 |---|---|---|
 | **Speaker** | Who's talking — name + role | *Jordan Example · Town Moderator* |
 | **Show ID** | Opening a program — title + your station line | *Brookline Special Town Meeting 2026 · Brookline Interactive Group · brooklineinteractive.org* |
-| **Article** | Dense info cards — number badge + full article title + meeting tag | *Article 7 · Create a new Section 8.XX of the General By-Laws banning cryptocurrency kiosks…* |
+| **Article** | Dense info cards — number badge + full article title + meeting tag. Long titles switch to a **Large** layout on their own: bars across the frame, bigger type, up to four lines | *Article 7 · Create a new Section 8.XX of the General By-Laws banning cryptocurrency kiosks…* |
 
 ![Examples](docs/examples/montage.png)
 
 ## Three steps
 
-1. **Titles** — add speakers, show IDs and articles one at a time, or **Import spreadsheet** (CSV, Excel, or paste straight from Google Sheets). Click any title to preview and edit it.
-2. **Look** — pick a built-in look, or **Duplicate & customize** it: station name and mark, logo, fonts, colors, corner radius, position, animation.
+1. **Titles** — add speakers, show IDs and articles one at a time, or **Import spreadsheet** (CSV, Excel, or paste straight from Google Sheets). Click any title to preview and edit it. Each title has a **Size on screen** (Auto / Standard / Large) and a text-size nudge; Auto goes Large whenever a title would otherwise come out small.
+2. **Look** — pick a built-in look and change anything: station name and mark, logo, fonts and **type sizes** (names, article titles, sub bar, tile mark, badge), colors, corner radius, position, animation. The first change makes the look your own copy; the built-in stays as it is.
 3. **Export** — choose a format, timing and a folder, tick the titles you want, and **Export**. Press <kbd>Space</kbd> anywhere to play the preview.
 
 Projects auto-save in the app; **Project → Save project file** writes a portable `.titler.json` you can archive or move between machines.
@@ -48,6 +48,8 @@ The app ships with the full warrant for the **Brookline Special Town Meeting (No
 1. **Project → Load Brookline Town Meeting 2026** (the sample replaces the title list; your look and export settings stay).
 2. Make sure the look is **BIG — Brookline Interactive**.
 3. **Export → Export all 22 titles.**
+
+The long articles (6, 9, 10, 11, 14…) render in the **Large** layout automatically so they read on a TV; switch any title between Standard and Large in the Titles step. Files are named by article number — `Article-07_Create-a-new-Section-8-XX….mov` — so the folder lines up with the warrant, and the show ID is `Show_Brookline-Special-Town-Meeting-2026.mov`.
 
 The same list is in [`public/samples/brookline-stm-2026-warrant-articles.csv`](public/samples/brookline-stm-2026-warrant-articles.csv) for the CLI (`npm run render -- --sample`). When the next warrant is posted, paste the article list into a sheet and import it — rows like `5. Resolution regarding…` are split into badge + title automatically.
 
@@ -77,6 +79,8 @@ Every format carries a real alpha channel:
 
 Timing defaults to a 1.1 s build, a 6 s hold and a 0.9 s out. For a key/fill feed you cut away from by hand, make the hold long.
 
+**File names.** Articles are named by their number (`Article-07_Create-a-new-Section….mov`), speakers and show IDs by what they say (`Speaker_Jordan-Example.mov`, `Show_Select-Board-Meeting.mov`). Two titles that would get the same name are suffixed `-2`, `-3`.
+
 ### OBS setup
 
 1. **Sources → + → Media Source** → pick your `.mov` or `.webm` → check **“Show nothing when playback ends”**. The transparency just works — put it over your program scene.
@@ -92,9 +96,9 @@ Tip: for key/fill, build an OBS scene containing *only* the title graphics (tran
 
 ## Looks & making it yours
 
-Five built-in looks: **BIG — Brookline Interactive** (navy tiles, rainbow arches, tri-color stripe, Fraunces serif names), **Civic Green** (the [Community AI Project](https://github.com/amateurmenace/community-ai-project) palette — forest green, lime, cream), neutral **Broadcast Slate**, civic **Town Hall**, and **Minimal Light**.
+Five built-in looks: **BIG — Brookline Interactive** (navy tiles, the rainbow arches over a big Montserrat **BIG**, tri-color stripe, Fraunces serif names), **Civic Green** (the [Community AI Project](https://github.com/amateurmenace/community-ai-project) palette — forest green, lime, cream), neutral **Broadcast Slate**, civic **Town Hall**, and **Minimal Light**.
 
-To rebrand for your station: **Look → Duplicate & customize** → set your station name, short mark and URL, upload a **logo PNG** for the tile, pick fonts (Fraunces, DM Sans, Inter, JetBrains Mono and Montserrat are bundled; add your own `.ttf`), set every color, and choose the motion. **Export** the look as a `.theme.json` to share with your team — or open a PR to add your station's look as a built-in.
+To rebrand for your station: in **Look**, start changing things — the first edit turns the built-in into your own copy, saved with the project. Set your station name, short mark and URL, upload a **logo PNG** for the tile, pick fonts and weights (Fraunces, DM Sans, Inter, JetBrains Mono and Montserrat are bundled; add your own `.ttf`), set the **type sizes** (name / show title, article title, sub bar, tile mark, badge — each a percentage of the look's default), set every color, and choose the motion. **Export** the look as a `.theme.json` to share with your team — or open a PR to add your station's look as a built-in.
 
 ## CLI batch rendering
 

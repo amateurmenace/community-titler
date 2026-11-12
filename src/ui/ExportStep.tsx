@@ -3,7 +3,17 @@ import type { ExportFormat, ExportSettings, ThemeDef, TitleItem } from '../types
 import { exportItems, type ExportController, type ExportDestination, type JobProgress } from '../exporter/run';
 import { pickDirectory, supportsFolderExport } from '../exporter/save';
 import { desktop } from '../desktop';
+import { badgeNumber } from '../shared/csv.js';
 import { IDownload, IFolder, IStop } from './icons';
+
+/** Short label for a checklist row: "Art. 7", "Show ID" or "Speaker". */
+function rowTag(i: TitleItem): string {
+  if (i.type === 'article') {
+    const n = badgeNumber(i.badge);
+    return n ? `Art. ${n.replace(/^0+(?=\d)/, '')}` : 'Article';
+  }
+  return i.type === 'show' ? 'Show ID' : 'Speaker';
+}
 
 const FORMATS: Array<{ id: ExportFormat; name: string; ext: string; desc: string; tag?: string }> = [
   { id: 'prores', name: 'ProRes 4444', ext: '.mov', tag: 'Recommended', desc: 'The broadcast workhorse: flawless alpha, decodes effortlessly in OBS Media Source and for DeckLink key/fill. Big files.' },
@@ -169,10 +179,9 @@ export function ExportRunner(props: {
     setSummary('');
     setRunning(true);
     setLastDest(d);
-    const indexOf = (item: TitleItem) => items.findIndex((i) => i.id === item.id);
     const t0 = performance.now();
     try {
-      const res = await exportItems(list, indexOf, theme, settings, d, (p) => setJobs((j) => ({ ...j, [p.label]: p })), ctlRef.current);
+      const res = await exportItems(list, items, theme, settings, d, (p) => setJobs((j) => ({ ...j, [p.label]: p })), ctlRef.current);
       const secs = ((performance.now() - t0) / 1000).toFixed(0);
       const where = d.kind === 'folder' ? d.path : d.kind === 'browser-dir' ? `the “${d.handle.name}” folder` : 'your downloads';
       setSummary(
@@ -214,12 +223,12 @@ export function ExportRunner(props: {
         <div className="empty"><b>Nothing to export yet</b>Go back to Titles and add or import some.</div>
       ) : (
         <div className="checklist">
-          {items.map((i, k) => (
+          {items.map((i) => (
             <label key={i.id}>
               <input type="checkbox" checked={isChecked(i.id)} onChange={() => toggle(i.id)} disabled={running} />
-              <span className="mono muted" style={{ fontSize: 11 }}>{String(k + 1).padStart(2, '0')}</span>
+              <span className={`badge ${i.type === 'article' ? 'purple' : i.type === 'show' ? 'sky' : ''}`} style={{ fontSize: 9, whiteSpace: 'nowrap' }}>{rowTag(i)}</span>
               <span className="txt">
-                <b>{i.type === 'article' && i.badge ? `${i.badge} · ` : ''}{i.primary || '(empty)'}</b>
+                <b>{i.primary || '(empty)'}</b>
                 {i.secondary && <span className="muted"> — {i.secondary}</span>}
               </span>
             </label>

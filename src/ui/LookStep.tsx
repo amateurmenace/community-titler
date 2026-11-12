@@ -124,7 +124,14 @@ export function LookEditor(props: {
   const color = (label: string, get: () => string, set: (v: string) => void) => (
     <label className="fld">
       <span>{label}</span>
-      <input type="color" value={get()} disabled={!isCustom} onChange={(e) => set(e.target.value)} />
+      <input type="color" value={get()} onChange={(e) => set(e.target.value)} />
+    </label>
+  );
+
+  const size = (label: string, val: number | undefined, set: (v: number) => void) => (
+    <label className="fld">
+      <span>{label} <span className="val">{Math.round((val ?? 1) * 100)}%</span></span>
+      <input type="range" min={0.7} max={1.5} step={0.05} value={val ?? 1} onChange={(e) => set(+e.target.value)} />
     </label>
   );
 
@@ -142,11 +149,11 @@ export function LookEditor(props: {
 
       {!isCustom && (
         <div className="note-box lime" style={{ marginBottom: 14 }}>
-          Built-in looks are locked so they always render the same. <b>Duplicate &amp; customize</b> to change the station name, colors, fonts, logo or motion — the copy is saved with your project.
+          This is a built-in look. Change anything below — station name, type sizes, fonts, colors, logo, motion — and it becomes <b>your own copy</b>, saved with the project. The built-in stays as it is.
         </div>
       )}
 
-      <div className={isCustom ? '' : 'locked'}>
+      <div>
         <details className="acc" open>
           <summary>Station identity <IChevron className="chev" /></summary>
           <div className="body">
@@ -228,6 +235,18 @@ export function LookEditor(props: {
                 </select>
               </label>
             </div>
+            <div className="grid3" style={{ marginTop: 12 }}>
+              {size('Name / show title size', F.displaySize, (v) => patch((t) => { t.fonts.displaySize = v; }))}
+              {size('Article title size', F.textSize, (v) => patch((t) => { t.fonts.textSize = v; }))}
+              {size('Sub bar size', F.subSize, (v) => patch((t) => { t.fonts.subSize = v; }))}
+              {size('Tile mark size', F.labelSize, (v) => patch((t) => { t.fonts.labelSize = v; }))}
+              {size('Badge size', F.badgeSize, (v) => patch((t) => { t.fonts.badgeSize = v; }))}
+              <div className="fld">
+                <span className="fldlabel">&nbsp;</span>
+                <button className="btn xs ghost" onClick={() => patch((t) => { t.fonts.displaySize = 1; t.fonts.textSize = 1; t.fonts.subSize = 1; t.fonts.labelSize = 1; t.fonts.badgeSize = 1; })}>Reset sizes</button>
+              </div>
+            </div>
+            <p className="hint" style={{ margin: '4px 0 10px' }}>Sizes are multipliers on the look's defaults. The per-title <b>Large</b> setting and text-size nudge in the Titles step stack on top of them.</p>
             <div className="btnrow">
               <button className="btn sm" onClick={() => fontRef.current?.click()}><IUpload /> Add a font file (.ttf / .otf)…</button>
               <input ref={fontRef} type="file" accept=".ttf,.otf,.woff,.woff2" style={{ display: 'none' }}

@@ -58,7 +58,7 @@ export default function App() {
         await desktop.capture(joinPath(dir, 'app.png'));
         log('captured app.png');
         for (const format of ['png', 'prores'] as const) {
-          const res = await exportItems(list, (it) => sample.items.indexOf(it), th, { ...sample.settings, format, holdDur: 1 },
+          const res = await exportItems(list, sample.items, th, { ...sample.settings, format, holdDur: 1 },
             { kind: 'folder', path: dir }, (p) => { if (p.phase === 'done' || p.phase === 'error') log(`${format} ${p.label} ${p.phase} ${p.message ?? ''}`); }, { cancelled: false });
           log(`${format}: ${res.done} done, ${res.failed.length} failed`);
         }
@@ -179,16 +179,26 @@ export default function App() {
     setProject((p) => ({ ...p, customThemes, themeId: selectId ?? p.themeId }));
 
   const patchTheme = (fn: (t: ThemeDef) => void) => {
-    if (!isCustom) return;
-    setProject((p) => ({
-      ...p,
-      customThemes: p.customThemes.map((t) => {
-        if (t.id !== p.themeId) return t;
-        const copy = normalizeTheme(JSON.parse(JSON.stringify(t))) as ThemeDef;
-        fn(copy);
-        return copy;
-      }),
-    }));
+    setProject((p) => {
+      if (p.customThemes.some((t) => t.id === p.themeId)) {
+        return {
+          ...p,
+          customThemes: p.customThemes.map((t) => {
+            if (t.id !== p.themeId) return t;
+            const copy = normalizeTheme(JSON.parse(JSON.stringify(t))) as ThemeDef;
+            fn(copy);
+            return copy;
+          }),
+        };
+      }
+      // Editing a built-in look: it becomes the user's own copy on the first change.
+      const copy = normalizeTheme(JSON.parse(JSON.stringify(getTheme(p.themeId, p.customThemes)))) as ThemeDef;
+      copy.id = `custom-${newId()}`;
+      copy.name = `${copy.name.replace(/ \(custom\)$/, '')} (custom)`;
+      fn(copy);
+      return { ...p, themeId: copy.id, customThemes: [...p.customThemes, copy] };
+    });
+    if (!isCustom) showToast('Made your own copy of this look — the built-in stays as it is');
   };
 
   const duplicateTheme = () => {
