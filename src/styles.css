@@ -310,6 +310,7 @@ hr.sep { border: none; border-top: 2px solid var(--line); margin: 16px 0; }
 .title-card .primary { font-weight: 700; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .title-card .secondary { font-size: 11.5px; color: var(--ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
 .title-card .idx { font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); font-weight: 700; }
+.title-card .artno { font-family: var(--mono); font-size: 14px; color: var(--green); font-weight: 700; line-height: 1; }
 .title-card .badge { font-size: 9.5px; padding: 2px 7px; }
 .title-card .lead { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 62px; }
 

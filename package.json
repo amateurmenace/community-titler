@@ -2,7 +2,7 @@
   "name": "community-titler",
   "productName": "Community Titler",
   "private": true,
-  "version": "2.0.0",
+  "version": "2.1.0",
   "type": "module",
   "main": "electron/main.cjs",
   "description": "Animated lower thirds with transparent alpha for community media stations. Type or import your titles, pick a look, export ProRes 4444 / WebM / PNG for OBS and key/fill playout. Web app, desktop app (Windows + macOS) and CLI.",
@@ -67,8 +67,18 @@
     "npmRebuild": false,
     "win": {
       "target": [
-        { "target": "nsis", "arch": ["x64"] },
-        { "target": "portable", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "build/icon.png"
     },
@@ -85,7 +95,10 @@
       "artifactName": "Community-Titler-${version}-win-portable.${ext}"
     },
     "mac": {
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "icon": "build/icon.png",
       "category": "public.app-category.video",
       "identity": null,
@@ -95,7 +108,9 @@
       "artifactName": "Community-Titler-${version}-mac-${arch}.${ext}"
     },
     "linux": {
-      "target": ["AppImage"],
+      "target": [
+        "AppImage"
+      ],
       "icon": "build/icon.png",
       "category": "Video",
       "artifactName": "Community-Titler-${version}-linux-${arch}.${ext}"

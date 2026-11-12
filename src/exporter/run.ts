@@ -28,7 +28,7 @@ export type ExportDestination =
 
 export async function exportItems(
   items: TitleItem[],
-  indexOffset: (item: TitleItem) => number,
+  allItems: TitleItem[], // the whole project list, so file names stay unique
   theme: ThemeDef,
   settings: ExportSettings,
   dest: ExportDestination,
@@ -53,7 +53,7 @@ export async function exportItems(
   for (let i = 0; i < items.length; i++) {
     if (ctl.cancelled) break;
     const item = items[i];
-    const base = itemFileBase(item, indexOffset(item));
+    const base = itemFileBase(item, allItems);
     const report = (phase: JobProgress['phase'], progress: number, message?: string) =>
       onProgress({ itemIndex: i, itemCount: items.length, label: base, phase, progress, message });
 

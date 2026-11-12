@@ -1,11 +1,17 @@
 export type ItemType = 'show' | 'speaker' | 'article';
 
+/** On-screen size. 'large' runs the bars across the frame with bigger type
+ *  (and an extra line); 'auto' picks it when a title would otherwise get small. */
+export type ItemSize = 'auto' | 'standard' | 'large';
+
 export interface TitleItem {
   id: string;
   type: ItemType;
   badge: string; // e.g. "Article 5" (article type)
   primary: string; // name / show title / article title
   secondary: string; // role / org line / event tag
+  size?: ItemSize; // default 'auto'
+  textScale?: number; // per-title nudge of the main text size, 1 = the look's default
 }
 
 export type MarkStyle = 'arches' | 'chip' | 'image' | 'none';
@@ -29,6 +35,12 @@ export interface ThemeFonts {
   /** the station short name on the tile and the badge */
   label: string;
   labelWeight: number;
+  /** size multipliers, 1 = default */
+  displaySize: number;
+  textSize: number;
+  subSize: number;
+  labelSize: number;
+  badgeSize: number;
 }
 
 export interface ThemeColors {
