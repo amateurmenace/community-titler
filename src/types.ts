@@ -1,7 +1,8 @@
 export type ItemType = 'show' | 'speaker' | 'article';
 
-/** On-screen size. 'large' runs the bars across the frame with bigger type
- *  (and an extra line); 'auto' picks it when a title would otherwise get small. */
+/** On-screen size. 'large' uses bigger type on more lines (never wider — the
+ *  lower-right corner stays clear for captions); 'auto' picks it when a title would
+ *  otherwise get small. */
 export type ItemSize = 'auto' | 'standard' | 'large';
 
 export interface TitleItem {
@@ -67,7 +68,7 @@ export interface ThemeDef {
     position: 'left' | 'center';
     marginX: number;
     marginY: number;
-    maxWidthFrac: number;
+    maxWidth: number;
     cornerRadius: number;
     scale: number;
   };

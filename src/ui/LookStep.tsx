@@ -326,6 +326,9 @@ export function LookEditor(props: {
               <label className="fld"><span>Side margin <span className="val">{theme.layout.marginX}px</span></span>
                 <input type="range" min={40} max={300} step={4} value={theme.layout.marginX} onChange={(e) => patch((t) => { t.layout.marginX = +e.target.value; })} />
               </label>
+              <label className="fld"><span>Max width <span className="val">{Math.round((theme.layout.maxWidth ?? 0.75) * 100)}%</span></span>
+                <input type="range" min={0.4} max={0.94} step={0.01} value={theme.layout.maxWidth ?? 0.75} onChange={(e) => patch((t) => { t.layout.maxWidth = +e.target.value; })} />
+              </label>
               <label className="fld"><span>Bottom margin <span className="val">{theme.layout.marginY}px</span></span>
                 <input type="range" min={40} max={300} step={4} value={theme.layout.marginY} onChange={(e) => patch((t) => { t.layout.marginY = +e.target.value; })} />
               </label>

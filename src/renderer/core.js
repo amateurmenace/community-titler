@@ -251,14 +251,15 @@ function computeLayout(ctx, item, theme, opts) {
   const barsX = x;
 
   // --- name bar content --------------------------------------------------
-  // Two sizes. Standard keeps the bars inside maxWidthFrac of the frame
-  // (articles get an extra fifth). Large runs the bars out to a matching
-  // right margin, raises the type sizes and allows an extra line — for the
-  // long warrant articles that would otherwise shrink into illegibility.
+  // Everything stays inside maxWidth of the frame, whatever the size:
+  // closed captions sit in the lower-right corner of the frame, so the
+  // bars must never reach it. Large therefore grows down, not sideways —
+  // bigger type and extra lines — for the long warrant articles that would
+  // otherwise shrink into illegibility.
   // 'auto' tries standard first and goes large when the text came out small.
+  const frac = Math.max(0.3, Math.min(0.94, L.maxWidth ?? 0.75));
   const measureBar = (large) => {
-    const frac = Math.min(0.94, (L.maxWidthFrac ?? 0.6) + (type === 'article' ? 0.2 : 0));
-    const availW = Math.max(240 * u, (large ? W - mx : W * frac) - barsX);
+    const availW = Math.max(240 * u, W * frac - barsX);
     const BAR_H = (large ? 108 : 96) * u;
     let family = F.display, weight = F.displayWeight, fit, lineK, floor;
     if (type === 'speaker') {
@@ -276,10 +277,10 @@ function computeLayout(ctx, item, theme, opts) {
     } else {
       family = F.text; weight = F.textWeight ?? 600;
       fit = fitLines(ctx, item.primary, {
-        family, weight, maxSize: (large ? 46 : 36) * u * kText, minSize: (large ? 32 : 24) * u * kText,
+        family, weight, maxSize: (large ? 40 : 36) * u * kText, minSize: (large ? 28 : 24) * u * kText,
         maxWidth: availW - PAD_X * 2, maxLines: large ? 4 : 3,
       });
-      lineK = 1.2; floor = 35 * u * kText; // i.e. go large as soon as standard has to shrink
+      lineK = 1.2; floor = 30 * u * kText; // three lines down to 30px still read fine; below that go large
     }
     const lines = fit.lines.length ? fit.lines : [{ text: '', width: 0 }];
     const lineH = fit.size * lineK;
@@ -312,9 +313,21 @@ function computeLayout(ctx, item, theme, opts) {
       maxWidth: availW - SUB_PAD_X * 2, maxLines: 1,
     });
     const text = fit.lines[0]?.text ?? '';
-    setFont(ctx, F.textWeight, fit.size, F.text);
-    const w = tracking ? measureTracked(ctx, text, tracking) : measure(ctx, text);
-    sub = { text, size: fit.size, tracking, w: w + SUB_PAD_X * 2, h: SUB_H };
+    // fitLines ignores letter-spacing and stops at minSize, so a tracked or
+    // very long line can still come out wider than the bars may be: scale it
+    // the rest of the way down rather than let it cross the width limit.
+    const subMax = availW - SUB_PAD_X * 2;
+    const widthAt = (sz) => {
+      setFont(ctx, F.textWeight, sz, F.text);
+      return tracking ? measureTracked(ctx, text, tracking) : measure(ctx, text);
+    };
+    let subSize = fit.size;
+    let w = widthAt(subSize);
+    if (w > subMax) {
+      subSize = Math.max(12 * u, subSize * ((subMax - tracking * text.length) / (w - tracking * text.length)));
+      w = widthAt(subSize);
+    }
+    sub = { text, size: subSize, tracking, w: w + SUB_PAD_X * 2, h: SUB_H };
   }
 
   // --- vertical stack ----------------------------------------------------

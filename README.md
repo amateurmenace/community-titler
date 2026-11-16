@@ -29,7 +29,7 @@ Three kinds of lower thirds. Each one *builds* on screen — the station tile po
 |---|---|---|
 | **Speaker** | Who's talking — name + role | *Jordan Example · Town Moderator* |
 | **Show ID** | Opening a program — title + your station line | *Brookline Special Town Meeting 2026 · Brookline Interactive Group · brooklineinteractive.org* |
-| **Article** | Dense info cards — number badge + full article title + meeting tag. Long titles switch to a **Large** layout on their own: bars across the frame, bigger type, up to four lines | *Article 7 · Create a new Section 8.XX of the General By-Laws banning cryptocurrency kiosks…* |
+| **Article** | Dense info cards — number badge + full article title + meeting tag. Long titles switch to a **Large** layout on their own: bigger type on up to four lines, never wider than the look's **Max width** (75% of the frame by default) so the lower-right corner stays clear for closed captions | *Article 7 · Create a new Section 8.XX of the General By-Laws banning cryptocurrency kiosks…* |
 
 ![Examples](docs/examples/montage.png)
 

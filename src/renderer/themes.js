@@ -5,7 +5,7 @@
 // Theme format v2 ("tile build"): tile + bar + stripe + sub bar colors.
 // normalizeTheme() upgrades v1 themes (panel/secondary/tag/accent) in place.
 
-const LAYOUT = { position: 'left', marginX: 128, marginY: 104, maxWidthFrac: 0.6, cornerRadius: 14, scale: 1 };
+const LAYOUT = { position: 'left', marginX: 128, marginY: 104, maxWidth: 0.75, cornerRadius: 14, scale: 1 };
 const FLAGS = { stripe: true, shadow: true, uppercaseBadge: true, uppercaseTag: false, markOnAll: true, subBar: true };
 
 export const BUILT_IN_THEMES = [
@@ -175,7 +175,11 @@ export function normalizeTheme(t) {
     out.flags.uppercaseTag = false;
   }
   const l = { ...(t.layout ?? {}) };
-  if (isV1) { delete l.marginX; delete l.marginY; delete l.cornerRadius; delete l.maxWidthFrac; }
+  if (isV1) { delete l.marginX; delete l.marginY; delete l.cornerRadius; }
+  // The old maxWidthFrac was never user-editable and meant something looser
+  // (Large ignored it); looks saved with it take the current default width.
+  delete l.maxWidthFrac;
+  if (!(l.maxWidth > 0)) delete l.maxWidth;
   out.layout = { ...LAYOUT, ...l };
   const anims = ['build', 'slide', 'rise', 'fade', 'wipe'];
   out.animation = isV1 ? 'build' : (anims.includes(t.animation) ? t.animation : 'build');
