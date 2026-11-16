@@ -140,6 +140,17 @@ function fitLines(ctx, text, opts) {
   return { size: minSize, lines: lines.map((l) => ({ text: l, width: measure(ctx, l) })), truncated: r.used < totalWords };
 }
 
+// "… · November 2026", "… - Nov. 17, 2026", "… · 11/17/2026": the month/year
+// or date a tag ends with, which the project date replaces.
+const MONTH = '(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\.?';
+const TRAILING_DATE = new RegExp(
+  `\\s*[\u00b7\u2022|\u2013\u2014-]\\s*(?:${MONTH}\\s+\\d{1,2}(?:st|nd|rd|th)?,?\\s+\\d{4}|${MONTH}\\s+\\d{4}|\\d{1,2}\\s+${MONTH},?\\s+\\d{4}|\\d{1,2}[/.]\\d{1,2}[/.]\\d{2,4})\\s*$`,
+  'i',
+);
+function stripTrailingDate(s) {
+  return String(s ?? '').replace(TRAILING_DATE, '').trim();
+}
+
 /** Split "Article 7" / "ART 12A" / "7" into {word, num}; anything else → {single}. */
 function splitBadge(text) {
   const s = String(text ?? '').trim();
@@ -223,7 +234,7 @@ function computeLayout(ctx, item, theme, opts) {
   const showTile = markStyle !== 'none' && (type === 'show' || FL.markOnAll !== false);
 
   /** @type {any} */
-  const plan = { u, W, H, r, type, large: false, tile: null, badge: null, bar: null, stripe: null, sub: null, tab: null, date: null };
+  const plan = { u, W, H, r, type, large: false, tile: null, badge: null, bar: null, stripe: null, sub: null, tab: null };
 
   // --- badge (article number) -------------------------------------------
   let badge = null;
@@ -310,31 +321,53 @@ function computeLayout(ctx, item, theme, opts) {
   if (type === 'show' && !subText) {
     subText = `${id.org ?? ''}${id.url ? ' · ' + id.url : ''}`.trim();
   }
-  if (type === 'article' && FL.uppercaseTag) subText = subText.toUpperCase();
+  // The project date (opts.dateText, on when opts.datePlace isn't 'off')
+  // continues the line after a dot — "Brookline Special Town Meeting ·
+  // November 17, 2026" — replacing a month/year or date the tag already
+  // ends with. Blank text leaves the line ending in the dot plus an empty
+  // slot of a fixed width, where a text source in OBS prints the live date.
+  const dateOn = !!opts.datePlace && opts.datePlace !== 'off';
+  const dateText = dateOn ? String(opts.dateText ?? '').replace(/\s+/g, ' ').trim() : '';
+  const dateSlot = dateOn && !dateText;
+  if (dateOn) {
+    const head = stripTrailingDate(subText);
+    subText = head ? `${head} · ${dateText}`.trim() : dateText;
+  }
+  const upperSub = type === 'article' && !!FL.uppercaseTag;
+  if (upperSub) subText = subText.toUpperCase();
   let sub = null;
-  if (subText && FL.subBar !== false) {
+  if ((subText || dateSlot) && FL.subBar !== false) {
     const SUB_H = (large ? 52 : 46) * u * Math.max(0.8, Math.min(1.5, kSub));
-    const tracking = type === 'article' && FL.uppercaseTag ? 1.4 * u : 0;
+    const tracking = upperSub ? 1.4 * u : 0;
+    const subMax = availW - SUB_PAD_X * 2;
+    const maxSize = (large ? 28 : 26) * u * kSub;
+    const textWidth = (s, sz) => {
+      setFont(ctx, F.textWeight, sz, F.text);
+      return tracking ? measureTracked(ctx, s, tracking) : measure(ctx, s);
+    };
+    // room reserved for a live date: a long date at this size, after a space
+    const SLOT_SAMPLE = upperSub ? 'SEPTEMBER 30, 2026' : 'September 30, 2026';
+    const slotAt = (sz, hasText) => (dateSlot ? { space: hasText ? textWidth(' ', sz) : 0, w: textWidth(SLOT_SAMPLE, sz) } : { space: 0, w: 0 });
     const fit = fitLines(ctx, subText, {
-      family: F.text, weight: F.textWeight, maxSize: (large ? 28 : 26) * u * kSub, minSize: 18 * u * kSub,
-      maxWidth: availW - SUB_PAD_X * 2, maxLines: 1,
+      family: F.text, weight: F.textWeight, maxSize, minSize: 18 * u * kSub,
+      maxWidth: subMax - (dateSlot ? slotAt(maxSize, !!subText).space + slotAt(maxSize, !!subText).w : 0), maxLines: 1,
     });
     const text = fit.lines[0]?.text ?? '';
     // fitLines ignores letter-spacing and stops at minSize, so a tracked or
     // very long line can still come out wider than the bars may be: scale it
     // the rest of the way down rather than let it cross the width limit.
-    const subMax = availW - SUB_PAD_X * 2;
-    const widthAt = (sz) => {
-      setFont(ctx, F.textWeight, sz, F.text);
-      return tracking ? measureTracked(ctx, text, tracking) : measure(ctx, text);
-    };
+    const widthAt = (sz) => { const sl = slotAt(sz, !!text); return textWidth(text, sz) + sl.space + sl.w; };
     let subSize = fit.size;
     let w = widthAt(subSize);
-    if (w > subMax) {
-      subSize = Math.max(12 * u, subSize * ((subMax - tracking * text.length) / (w - tracking * text.length)));
+    for (let pass = 0; pass < 2 && w > subMax; pass++) {
+      subSize = Math.max(12 * u, subSize * (subMax / w));
       w = widthAt(subSize);
     }
-    sub = { text, size: subSize, tracking, w: w + SUB_PAD_X * 2, h: SUB_H };
+    const sl = slotAt(subSize, !!text);
+    sub = {
+      text, size: subSize, tracking, w: w + SUB_PAD_X * 2, h: SUB_H,
+      slot: dateSlot ? { dx: SUB_PAD_X + textWidth(text, subSize) + sl.space, w: sl.w, upper: upperSub } : null,
+    };
   }
 
   // --- petitioner tab ----------------------------------------------------
@@ -369,23 +402,6 @@ function computeLayout(ctx, item, theme, opts) {
       m.w = maxTabW;
     }
     tab = { text, kick: kickText, kickTracking, kickGap, padX: TAB_PAD, size: m.size, kickSize: m.kickSize, kickW: m.kickW, nameW: m.nameW, w: m.w, h: Math.round(m.size * 1.9) };
-  }
-
-  // --- date --------------------------------------------------------------
-  // A project-wide date (opts.dateText / opts.datePlace): a tab on the
-  // top-left of the name bar, or a chip in the top-left corner of the frame
-  // whose position never changes, so a text source in OBS can sit on it.
-  // Blank text draws an empty plate of a fixed width for exactly that.
-  let date = null;
-  const datePlace = opts.datePlace === 'title' || opts.datePlace === 'corner' ? opts.datePlace : 'off';
-  if (datePlace !== 'off') {
-    const text = String(opts.dateText ?? '').replace(/\s+/g, ' ').trim();
-    const size = 26 * u * kSub;
-    const padX = 24 * u;
-    setFont(ctx, 700, size, F.text);
-    const natural = text ? measure(ctx, text) + padX * 2 : 320 * u;
-    const w = Math.min(natural, datePlace === 'title' ? availW : W - 2 * mx);
-    date = { place: datePlace, text, size, padX, w, h: Math.round(size * 1.9) };
   }
 
   // --- vertical stack ----------------------------------------------------
@@ -441,9 +457,7 @@ function computeLayout(ctx, item, theme, opts) {
   if (badge) {
     plan.badge = { ...badge, x: badgeX + shift, y: tileY, h: tileH };
   }
-  const dateOnBar = date && date.place === 'title' ? date : null;
-  const tabsW = (tab ? tab.w : 0) + (dateOnBar ? dateOnBar.w : 0) + (tab && dateOnBar ? 12 * u : 0);
-  const barWFinal = Math.max(barW, tabsW);
+  const barWFinal = Math.max(barW, tab ? tab.w : 0);
   plan.bar = {
     x: barsX + shift, y: stackY, w: barWFinal, h: barH,
     padX: PAD_X, padY, lines, size, lineH, family, weight,
@@ -451,16 +465,13 @@ function computeLayout(ctx, item, theme, opts) {
   if (tab) {
     plan.tab = { ...tab, x: barsX + shift + barWFinal - tab.w, y: stackY - tab.h };
   }
-  if (date) {
-    plan.date = date.place === 'title'
-      ? { ...date, x: barsX + shift, y: stackY - date.h }
-      : { ...date, x: mx, y: my };
-  }
   if (stripeOn) {
     plan.stripe = { x: barsX + shift, y: stackY + barH, w: barWFinal, h: stripeH, colors: C.stripes };
   }
   if (sub) {
     plan.sub = { ...sub, x: barsX + shift, y: stackY + barH + stripeH, padX: SUB_PAD_X };
+    // the live-date slot in frame coordinates, for the preview and the OBS overlay
+    if (sub.slot) plan.sub.slot = { x: plan.sub.x + sub.slot.dx, y: plan.sub.y, w: sub.slot.w, h: sub.h, upper: sub.slot.upper };
   }
   plan.stackY = stackY;
   plan.stackH = stackH;
@@ -699,43 +710,6 @@ export function drawFrame(ctx, t, item, theme, opts) {
     ctx.restore();
   }
 
-  // --- date (tab on the bar's top-left, or a fixed corner chip) ----------------
-  if (plan.date && st.tab > 0 && st.bar > 0) {
-    const D = plan.date;
-    ctx.save();
-    if (D.place === 'title') {
-      const y = bar.y - D.h * st.tab;
-      ctx.beginPath();
-      ctx.rect(D.x - 40 * u, y - 40 * u, D.w + 80 * u, bar.y - y + 40 * u + 1);
-      ctx.clip();
-      setShadow(0.22);
-      rrectCorners(ctx, D.x, y, D.w, D.h + r, { tl: r, tr: r, br: 0, bl: 0 });
-      ctx.fillStyle = C.subBar;
-      ctx.fill();
-      clearShadow();
-      if (D.text) {
-        ctx.globalAlpha *= Math.min(1, st.tab * 1.4);
-        setFont(ctx, 700, D.size, F.text);
-        ctx.fillStyle = C.subText;
-        ctx.fillText(D.text, D.x + D.padX, y + D.h / 2 + D.size * 0.36);
-      }
-    } else {
-      const drop = 14 * u * (1 - st.tab);
-      ctx.globalAlpha *= st.tab;
-      setShadow(0.26);
-      rrect(ctx, D.x, D.y - drop, D.w, D.h, Math.min(r, D.h / 2));
-      ctx.fillStyle = C.bar;
-      ctx.fill();
-      clearShadow();
-      if (D.text) {
-        setFont(ctx, 700, D.size, F.text);
-        ctx.fillStyle = C.text;
-        ctx.fillText(D.text, D.x + D.padX, D.y - drop + D.h / 2 + D.size * 0.36);
-      }
-    }
-    ctx.restore();
-  }
-
   // --- name bar ---------------------------------------------------------------
   const barW = bar.w * st.bar;
   const subOn = plan.sub && st.sub > 0;
@@ -747,8 +721,7 @@ export function drawFrame(ctx, t, item, theme, opts) {
     // the top-right one is square under the petitioner tab
     const squareBottom = !!(plan.stripe || plan.sub);
     const tr = plan.tab ? 0 : r;
-    const tl = plan.date && plan.date.place === 'title' ? 0 : r;
-    rrectCorners(ctx, bar.x, bar.y, Math.max(1, barW), bar.h, { tl, tr, br: squareBottom ? 0 : r, bl: squareBottom ? 0 : r });
+    rrectCorners(ctx, bar.x, bar.y, Math.max(1, barW), bar.h, { tl: r, tr, br: squareBottom ? 0 : r, bl: squareBottom ? 0 : r });
     ctx.fillStyle = C.bar;
     ctx.fill();
     clearShadow();

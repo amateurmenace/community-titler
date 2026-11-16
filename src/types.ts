@@ -90,7 +90,8 @@ export interface ThemeDef {
 
 export type ExportFormat = 'prores' | 'webm' | 'png' | 'pngseq';
 
-export type DatePlace = 'off' | 'title' | 'corner';
+/** 'sub': the date continues the sub bar line after a dot ('title' / 'corner' are 2.3 pre-release values, read as 'sub') */
+export type DatePlace = 'off' | 'sub';
 
 export interface ExportSettings {
   format: ExportFormat;
@@ -100,9 +101,9 @@ export interface ExportSettings {
   inDur: number;
   holdDur: number;
   outDur: number;
-  /** a date on every title: as a tab on the name bar, or a fixed chip in the top-left corner */
+  /** a date on every title, continuing the sub bar after a dot */
   datePlace?: DatePlace;
-  /** the date text; blank draws an empty plate to be filled by an OBS text source */
+  /** the date text; blank leaves an empty slot in the sub bar for an OBS text source */
   dateText?: string;
 }
 

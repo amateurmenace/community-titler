@@ -9,6 +9,8 @@ const KEY_V1 = 'community-titler.project.v1';
 
 export const SAMPLE_NAME = 'Brookline Special Town Meeting 2026';
 
+export const SAMPLE_DATE = 'November 17, 2026';
+
 export function defaultProject(): Project {
   return {
     version: 2,
@@ -16,8 +18,15 @@ export function defaultProject(): Project {
     items: stm2026Items(),
     themeId: 'big',
     customThemes: [],
-    settings: { ...DEFAULT_SETTINGS },
+    settings: { ...DEFAULT_SETTINGS, datePlace: 'sub', dateText: SAMPLE_DATE },
   };
+}
+
+/** Settings saved by a 2.3 pre-release placed the date elsewhere; it now continues the sub bar. */
+function migrateSettings(raw: any) {
+  const s = { ...DEFAULT_SETTINGS, ...(raw ?? {}) };
+  if (s.datePlace && s.datePlace !== 'off') s.datePlace = 'sub';
+  return s;
 }
 
 export function emptyProject(): Project {
@@ -54,7 +63,7 @@ export function migrateProject(raw: any): Project | null {
       ...raw,
       items: migrateItems(raw.items),
       customThemes,
-      settings: { ...DEFAULT_SETTINGS, ...(raw.settings ?? {}) },
+      settings: migrateSettings(raw.settings),
     };
   }
   if (raw.version === 1) {

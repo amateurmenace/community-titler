@@ -1,11 +1,13 @@
 import type { DatePlace, ExportSettings, ItemSize, ItemType, TitleItem } from '../types';
 import { badgeNumber } from '../shared/csv.js';
-import { IArrowRight, ICopy, IDown, IPlus, ISparkle, ITrash, IUp, IUpload } from './icons';
+import { IArrowRight, ICopy, IDown, IDownload, IPlus, ISparkle, ITrash, IUp, IUpload } from './icons';
+
+const OBS_DATE_SCRIPT_URL = 'https://obsproject.com/forum/resources/k_styers-dynamic-time-and-date-display-for-obs-en-multi-8.1946/';
 
 const TYPE_LABEL: Record<ItemType, string> = { show: 'Show ID', speaker: 'Speaker', article: 'Article' };
 const TYPE_TONE: Record<ItemType, string> = { show: 'sky', speaker: '', article: 'purple' };
 const SIZE_LABEL: Record<ItemSize, string> = { auto: 'Auto', standard: 'Standard', large: 'Large' };
-const DATE_LABEL: Record<DatePlace, string> = { off: 'Off', title: 'On the title', corner: 'Top-left corner' };
+const DATE_LABEL: Record<DatePlace, string> = { off: 'Off', sub: 'After the tag line' };
 
 /** "Article 7" → "7", "Article 12A" → "12A", anything without a number → null */
 const artNo = (badge: string): string | null => {
@@ -18,13 +20,14 @@ export function TitlesRail(props: {
   selectedId: string | null;
   settings: ExportSettings;
   onSettings: (settings: ExportSettings) => void;
+  onDateOverlay: () => void;
   onSelect: (id: string) => void;
   onAdd: (type: ItemType) => void;
   onImport: () => void;
   onLoadSample: () => void;
 }) {
-  const { items, selectedId, settings, onSettings, onSelect, onAdd, onImport, onLoadSample } = props;
-  const place: DatePlace = settings.datePlace ?? 'off';
+  const { items, selectedId, settings, onSettings, onDateOverlay, onSelect, onAdd, onImport, onLoadSample } = props;
+  const place: DatePlace = settings.datePlace && settings.datePlace !== 'off' ? 'sub' : 'off';
   const dateText = settings.dateText ?? '';
   return (
     <>
@@ -45,8 +48,8 @@ export function TitlesRail(props: {
       <div className="datecard">
         <div className="datecard-head">
           <span className="fldlabel">Date on every title</span>
-          <div className="typepick" role="radiogroup" aria-label="Date placement">
-            {(['off', 'title', 'corner'] as DatePlace[]).map((p) => (
+          <div className="typepick" role="radiogroup" aria-label="Date on every title">
+            {(['off', 'sub'] as DatePlace[]).map((p) => (
               <button key={p} className={place === p ? 'on' : ''} onClick={() => onSettings({ ...settings, datePlace: p })} role="radio" aria-checked={place === p}>
                 {DATE_LABEL[p]}
               </button>
@@ -56,17 +59,26 @@ export function TitlesRail(props: {
         {place !== 'off' && (
           <>
             <input
-              placeholder="November 17, 2026 — or leave blank for an empty plate"
+              placeholder="November 17, 2026 — or leave blank for a live date from OBS"
               value={dateText}
               onChange={(e) => onSettings({ ...settings, dateText: e.target.value })}
               aria-label="Date text"
             />
-            <p className="hint">
-              {dateText.trim()
-                ? (place === 'title' ? 'A tab on the top-left of the name bar, on every title.' : 'A chip in the top-left corner of the frame, on every title.')
-                : 'Blank: an empty plate is drawn so a text source in OBS can show the date live. Its pixel position is shown above the preview'
-                  + (place === 'title' ? ' — it moves with each title, so use the corner placement for OBS.' : '.')}
-            </p>
+            {dateText.trim() ? (
+              <p className="hint">
+                Continues the tag or role line after a dot — <i>Brookline Special Town Meeting · {dateText.trim()}</i>. A month, year or date the line already ends with is replaced. Clear it to fill the date in from OBS instead.
+              </p>
+            ) : (
+              <div className="obsnote">
+                <b>Blank = a live date from OBS.</b> The tag line ends with a dot and an empty slot (its pixel box is printed above the preview). To put today's date in it:
+                <ol>
+                  <li><button className="linkish" onClick={onDateOverlay}>Download the OBS date overlay</button> — an HTML file that prints the date in the slot, in this look's type and colours, and updates itself at midnight. It is measured on the first article; titles whose tag reads differently put the slot elsewhere.</li>
+                  <li>In OBS: <b>Sources → + → Browser</b>, tick <b>Local file</b>, choose that file, set width {settings.width} and height {settings.height}, and keep it above your title sources.</li>
+                  <li>Prefer a Text source? <a href={OBS_DATE_SCRIPT_URL} target="_blank" rel="noreferrer">K_STYER's Dynamic Time and Date Display</a> (OBS forum, <b>Tools → Scripts</b>) keeps a Text (GDI+) source showing the date; place it in the slot.</li>
+                </ol>
+                <button className="btn sm primary" onClick={onDateOverlay}><IDownload /> Download OBS date overlay (.html)</button>
+              </div>
+            )}
           </>
         )}
       </div>

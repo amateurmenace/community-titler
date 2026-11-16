@@ -31,13 +31,13 @@ Three kinds of lower thirds. Each one *builds* on screen — the station tile po
 | **Show ID** | Opening a program — title + your station line | *Brookline Special Town Meeting 2026 · Brookline Interactive Group · brooklineinteractive.org* |
 | **Article** | Dense info cards — number badge + full article title + meeting tag, with the **petitioner** on a tab above the title's right end. Long titles switch to a **Large** layout on their own: bigger type on up to four lines, never wider than the look's **Max width** (75% of the frame by default) | *Article 7 · Create a new Section 8.XX of the General By-Laws banning cryptocurrency kiosks · Petitioner: Shapiro, Fischer, TMM11* |
 
-Any title can also carry the **date** — typed once for the whole project, as a tab on the name bar or a fixed chip in the top-left corner. Leave the date blank and an empty plate is drawn instead, so a text source in OBS can show the date live (see [Exporting alpha](#a-live-date-from-obs)). Press <kbd>Enter</kbd> while typing a title to break a line where you want it.
+Any title can also carry the **date**, typed once for the whole project: it continues the tag or role line after a dot — *Brookline Special Town Meeting · November 17, 2026* — replacing a month, year or date the line already ends with. Leave it blank and the line ends in an empty slot that a text source in OBS can fill with the live date (see [A live date from OBS](#a-live-date-from-obs)). Press <kbd>Enter</kbd> while typing a title to break a line where you want it.
 
 ![Examples](docs/examples/montage.png)
 
 ## Three steps
 
-1. **Titles** — add speakers, show IDs and articles one at a time, or **Import spreadsheet** (CSV, Excel, or paste straight from Google Sheets). Click any title to preview and edit it; <kbd>Enter</kbd> starts a new line. Articles have a **Petitioner** field (the tab above the title). Each title has a **Size on screen** (Auto / Standard / Large) and a text-size nudge; Auto goes Large whenever a title would otherwise come out small. **Date on every title** (off / on the title / top-left corner) lives at the top of the list.
+1. **Titles** — add speakers, show IDs and articles one at a time, or **Import spreadsheet** (CSV, Excel, or paste straight from Google Sheets). Click any title to preview and edit it; <kbd>Enter</kbd> starts a new line. Articles have a **Petitioner** field (the tab above the title). Each title has a **Size on screen** (Auto / Standard / Large) and a text-size nudge; Auto goes Large whenever a title would otherwise come out small. **Date on every title** lives at the top of the list.
 2. **Look** — the gallery sits under the preview; every adjustment is in the left column so the video stays in view while you drag: **Placement & size** (max width, left and bottom margins, scale, corners, position), **Type** (fonts, weights and sizes for names, article titles, sub bar and tabs, tile mark, badge), **Colors**, **Station identity** (name, mark, logo) and **Motion & extras**. The first change makes the look your own copy; the built-in stays as it is.
 3. **Export** — choose a format, timing and a folder, tick the titles you want, and **Export**. Press <kbd>Space</kbd> anywhere to play the preview.
 
@@ -47,7 +47,7 @@ Projects auto-save in the app; **Project → Save project file** writes a portab
 
 The app ships with the full warrant for the **Brookline Special Town Meeting (November 2026)** — the show ID plus all 21 articles. To regenerate the set at any time:
 
-1. **Project → Load Brookline Town Meeting 2026** (the sample replaces the title list; your look and export settings stay).
+1. **Project → Load Brookline Town Meeting 2026** (the sample replaces the title list and sets the date to November 17, 2026; your look and export settings stay).
 2. Make sure the look is **BIG — Brookline Interactive**.
 3. **Export → Export all 22 titles.**
 
@@ -85,20 +85,12 @@ Timing defaults to a 1.1 s build, a 6 s hold and a 0.9 s out. For a key/fill fee
 
 ### A live date from OBS
 
-Set **Date on every title** to **Top-left corner** and leave the text blank: every export then carries an empty plate at a fixed spot (x 64, y 56, 320 × 46 px at 1080p with the default look — the exact box is printed above the preview). In OBS, add a **Text** source over the titles, set it to read the date from a file or a script (the *Date and Time* script bundled with OBS works), and place it on the plate. The *On the title* placement moves with each title, so use it for a typed date.
+Turn **Date on every title** on and leave the text blank. Every title's tag line then ends in a dot and an empty slot (x, y and size are printed above the preview), and the Titles step offers **Download the OBS date overlay**: a small HTML file that prints today's date in that slot in the look's own type and colours and refreshes itself at midnight.
 
-### OBS setup
+1. In OBS: **Sources → + → Browser** → tick **Local file** → pick the downloaded `obs-date-overlay-….html` → width 1920, height 1080 (or your export size). Keep it above the title sources.
+2. That's it: the bar comes from the title clip, the date from the overlay. To change the wording (weekday, short month…) edit the `FORMAT` line inside the file. The overlay is measured on the first article, so titles whose tag line reads differently (a speaker's role, say) put the slot somewhere else; keep one tag per meeting.
 
-1. **Sources → + → Media Source** → pick your `.mov` or `.webm` → check **“Show nothing when playback ends”**. The transparency just works — put it over your program scene.
-2. Restart the clip to take it on air: select the source and **Restart** (or hotkey it: Settings → Hotkeys → *Restart media*).
-
-### Key/fill out a DeckLink to your switcher
-
-1. **Tools → Decklink Output** in OBS.
-2. Pick your DeckLink device and format, and set **Keyer: External** (needs a keyer-capable card: Duo 2, Quad 2, 4K Extreme, 8K Pro…).
-3. The card now sends **fill** on one SDI and **key** on the other — take them into your switcher (e.g. an ATEM aux/keyer pair as a luma/linear key) and cut graphics like a TV truck.
-
-Tip: for key/fill, build an OBS scene containing *only* the title graphics (transparent everywhere else) and route that scene's Decklink output.
+Prefer a Text source? [K_STYER's Dynamic Time and Date Display](https://obsproject.com/forum/resources/k_styers-dynamic-time-and-date-display-for-obs-en-multi-8.1946/) on the OBS forum (**Tools → Scripts**) keeps a *Text (GDI+)* source showing the date; place it in the slot.
 
 ## Looks & making it yours
 
@@ -118,7 +110,7 @@ npm run render -- --csv mytitles.csv --format prores --out exports/tonight
 npm run render -- --sample --format webm --theme big --hold 8
 ```
 
-Formats: `prores`, `webm`, `png`, `pngseq`. Run `npm run render -- --help` for every flag (`--theme your-station.theme.json`, `--size 1280x720`, `--fps 59.94`, `--only 3,5`, `--date "November 17, 2026"`, `--date "" --date-place corner` for the blank OBS plate, …). `node scripts/measure.mjs --sample` prints each title's type size, line count, right edge and height without rendering — handy when adjusting a look.
+Formats: `prores`, `webm`, `png`, `pngseq`. Run `npm run render -- --help` for every flag (`--theme your-station.theme.json`, `--size 1280x720`, `--fps 59.94`, `--only 3,5`, `--date "November 17, 2026"`, `--date ""` for the blank OBS slot, …). `node scripts/measure.mjs --sample` prints each title's type size, line count, right edge and height without rendering — handy when adjusting a look.
 
 ## For developers
 

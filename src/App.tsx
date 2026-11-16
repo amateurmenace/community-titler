@@ -7,7 +7,8 @@ import { ExportRail, ExportRunner } from './ui/ExportStep';
 import ImportModal from './ui/ImportModal';
 import { getTheme, normalizeTheme } from './renderer/themes.js';
 import { getCustomFonts, loadBundledFonts, registerCustomFonts } from './renderer/fonts';
-import { defaultProject, emptyProject, exportProjectFile, loadProject, migrateProject, saveProject, SAMPLE_NAME } from './store';
+import { defaultProject, emptyProject, exportProjectFile, loadProject, migrateProject, saveProject, SAMPLE_DATE, SAMPLE_NAME } from './store';
+import { buildDateOverlayHtml } from './obsOverlay';
 import { STM_TAG } from './data/stm2026';
 import type { ExportDestination } from './exporter/run';
 import type { ItemType, Project, ThemeDef, TitleItem } from './types';
@@ -140,7 +141,11 @@ export default function App() {
   const loadSample = () => {
     if (project.items.length && !confirm(`Replace the current ${project.items.length} titles with the ${SAMPLE_NAME} sample (show ID + 21 warrant articles)? Your look and export settings are kept.`)) return;
     const s = defaultProject();
-    setProject((p) => ({ ...p, name: s.name, items: s.items }));
+    // the meeting date continues the tag line; keep a date the user already set
+    setProject((p) => ({
+      ...p, name: s.name, items: s.items,
+      settings: p.settings.datePlace && p.settings.datePlace !== 'off' ? p.settings : { ...p.settings, datePlace: 'sub', dateText: SAMPLE_DATE },
+    }));
     setSelectedId(s.items[0]?.id ?? null);
     setExportSel(null);
     setStep('titles');
@@ -226,6 +231,28 @@ export default function App() {
     }
   };
 
+  const downloadDateOverlay = async () => {
+    const probe = project.items.find((i) => i.type === 'article') ?? project.items[0];
+    if (!probe) { alert('Add a title first — the overlay is measured on the first article.'); return; }
+    const html = await buildDateOverlayHtml(theme, project.settings, probe);
+    if (!html) { alert('Could not measure the date slot. Turn the date on, leave it blank, and try again.'); return; }
+    const name = `obs-date-overlay-${theme.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}.html`;
+    if (desktop) {
+      const path = await desktop.saveFileDialog({ defaultName: name, filters: [{ name: 'OBS Browser Source page', extensions: ['html'] }] });
+      if (!path) return;
+      await desktop.writeFile(path, html);
+      showToast('Overlay saved — add it in OBS as a Browser Source (Local file)');
+      return;
+    }
+    const blob = new Blob([html], { type: 'text/html' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    showToast('Overlay downloaded — add it in OBS as a Browser Source (Local file)');
+  };
+
   const exportTheme = async () => {
     const json = JSON.stringify(theme, null, 2);
     const name = `${theme.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}.theme.json`;
@@ -274,6 +301,7 @@ export default function App() {
               selectedId={selected?.id ?? null}
               settings={project.settings}
               onSettings={(settings) => setProject((p) => ({ ...p, settings }))}
+              onDateOverlay={downloadDateOverlay}
               onSelect={setSelectedId}
               onAdd={addItem}
               onImport={() => setImportOpen(true)}

@@ -191,7 +191,7 @@ export function LookRail(props: {
             {color('Tile', () => C.tile, (v) => patch((t) => { t.colors.tile = v; }))}
             {color('Name bar', () => C.bar, (v) => patch((t) => { t.colors.bar = v; }))}
             {color('Name text', () => C.text, (v) => patch((t) => { t.colors.text = v; }))}
-            {color('Sub bar & tabs', () => C.subBar, (v) => patch((t) => { t.colors.subBar = v; }))}
+            {color('Sub bar & tab', () => C.subBar, (v) => patch((t) => { t.colors.subBar = v; }))}
             {color('Sub bar text', () => C.subText, (v) => patch((t) => { t.colors.subText = v; }))}
             {color('Tile mark text', () => C.label, (v) => patch((t) => { t.colors.label = v; }))}
             {color('Badge', () => C.badgeBg, (v) => patch((t) => { t.colors.badgeBg = v; }))}

@@ -29,7 +29,7 @@ export default function Preview(props: {
   const [clock, setClock] = useState(0);
   const assetsRef = useRef<RenderAssets>({});
   const [assetsTick, setAssetsTick] = useState(0);
-  // Where the (blank) date plate landed, for lining up an OBS text source
+  // Where the (blank) date slot landed, for lining up an OBS text source
   const plateRef = useRef('');
   const [plate, setPlate] = useState('');
 
@@ -52,10 +52,9 @@ export default function Preview(props: {
     if (!item) { ctx.clearRect(0, 0, canvas.width, canvas.height); return; }
     const plan = drawFrame(ctx, t, item, theme, { ...settings, assets: assetsRef.current });
     if (safe) drawSafeGuides(ctx, settings.width, settings.height);
-    const D = plan?.date;
-    const info = D && !D.text
-      ? `Date plate: x ${Math.round(D.x)}, y ${Math.round(D.y)}, ${Math.round(D.w)} × ${Math.round(D.h)} px at ${settings.width}×${settings.height}`
-        + (D.place === 'title' ? ' (moves with the title)' : '')
+    const S = plan?.sub?.slot;
+    const info = S
+      ? `Date slot: x ${Math.round(S.x)}, y ${Math.round(S.y)}, ${Math.round(S.w)} × ${Math.round(S.h)} px at ${settings.width}×${settings.height}`
       : '';
     if (info !== plateRef.current) { plateRef.current = info; setPlate(info); }
   };
@@ -158,7 +157,7 @@ export default function Preview(props: {
         )}
         <div className="spacer" />
         {plate ? (
-          <span className="fine plate" title="Put an OBS text source on this box to show the date live">{plate}</span>
+          <span className="fine plate" title="Put an OBS text source in this box to show the date live">{plate}</span>
         ) : (
           <span className="fine">Exports are transparent · background is preview-only</span>
         )}
