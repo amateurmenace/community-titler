@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { drawFrame, totalDuration, holdTime } from '../renderer/core.js';
 import { loadAssets, type RenderAssets } from '../exporter/frames';
 import type { ExportSettings, ThemeDef, TitleItem } from '../types';
@@ -152,7 +152,12 @@ export default function Preview(props: {
       </div>
 
       <div className={`canvasbox ${bg}`}>
-        <canvas ref={canvasRef} width={settings.width} height={settings.height} />
+        <canvas
+          ref={canvasRef}
+          width={settings.width}
+          height={settings.height}
+          style={{ aspectRatio: `${settings.width} / ${settings.height}`, '--ar': settings.width / settings.height } as CSSProperties}
+        />
       </div>
 
       <div className="transport">
