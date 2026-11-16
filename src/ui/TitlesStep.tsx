@@ -207,7 +207,7 @@ export function TitleEditor(props: {
         </label>
       </div>
       <p className="hint" style={{ marginTop: 8 }}>
-        <b>Large</b> runs the bars across the frame with bigger type and room for an extra line — the right choice for long warrant articles.
+        <b>Large</b> uses bigger type and extra lines, growing upward rather than sideways so the right third of the frame stays clear for captions — the right choice for long warrant articles.
         <b> Auto</b> switches to it on its own when a title would otherwise come out small. Fonts and the sizes for a whole look live in the Look step.
       </p>
 

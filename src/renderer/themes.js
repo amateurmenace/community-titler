@@ -5,7 +5,7 @@
 // Theme format v2 ("tile build"): tile + bar + stripe + sub bar colors.
 // normalizeTheme() upgrades v1 themes (panel/secondary/tag/accent) in place.
 
-const LAYOUT = { position: 'left', marginX: 128, marginY: 104, maxWidthFrac: 0.6, cornerRadius: 14, scale: 1 };
+const LAYOUT = { position: 'left', marginX: 128, marginY: 104, maxWidthFrac: 0.64, cornerRadius: 14, scale: 1 };
 const FLAGS = { stripe: true, shadow: true, uppercaseBadge: true, uppercaseTag: false, markOnAll: true, subBar: true };
 
 export const BUILT_IN_THEMES = [
