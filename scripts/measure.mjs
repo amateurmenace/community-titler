@@ -56,13 +56,13 @@ let worstRight = 0, tallest = 0;
 for (let i = 0; i < items.length; i++) {
   const it = items[i];
   const p = measureLayout(ctx, it, theme, settings);
-  const right = Math.max(p.bar.x + p.bar.w, p.sub ? p.sub.x + p.sub.w : 0, p.tab ? p.tab.x + p.tab.w : 0);
-  const top = Math.min(p.bar.y, p.tab ? p.tab.y : Infinity, p.tile ? p.tile.y : Infinity);
+  const right = Math.max(p.bar.x + p.bar.w, p.sub ? p.sub.x + p.sub.w : 0, p.tab ? p.tab.x + p.tab.w : 0, p.url ? p.url.x + p.url.w : 0);
+  const top = Math.min(p.bar.y, p.tab ? p.tab.y : Infinity, p.tile ? p.tile.y : Infinity, p.url ? p.url.y : Infinity);
   const h = height - top - (height - (p.stackY + p.stackH));
   worstRight = Math.max(worstRight, right);
   tallest = Math.max(tallest, h);
   const label = it.type === 'article' ? it.badge : it.type;
   const flagStr = `${p.large ? 'LARGE' : 'std  '}${right > limit + 0.5 ? ' OVER' : ''}`;
-  console.log(`${pad(i + 1, 3)}${pad(label, 11)}${pad(r0(p.bar.size) + 'px', 6)}${pad(p.bar.lines.length + 'ln', 4)}${flagStr}  right ${pad(r0(right), 5)} top ${pad(r0(top), 5)} h ${pad(r0(h), 4)}${p.tab ? ' tab "' + p.tab.text + '" ' + r0(p.tab.w) + 'w' : ''}${p.sub ? ' sub "' + p.sub.text + '"' : ''}${p.sub && p.sub.slot ? ' slot ' + r0(p.sub.slot.x) + ',' + r0(p.sub.slot.y) + ' ' + r0(p.sub.slot.w) + 'x' + r0(p.sub.slot.h) : ''}`);
+  console.log(`${pad(i + 1, 3)}${pad(label, 11)}${pad(r0(p.bar.size) + 'px', 6)}${pad(p.bar.lines.length + 'ln', 4)}${flagStr}  right ${pad(r0(right), 5)} top ${pad(r0(top), 5)} h ${pad(r0(h), 4)}${p.url ? ' url ' + r0(p.url.w) + 'w' : ''}${p.tab ? ' tab "' + p.tab.text + '" ' + r0(p.tab.w) + 'w' : ''}${p.sub ? ' sub "' + p.sub.text + '"' : ''}${p.sub && p.sub.slot ? ' slot ' + r0(p.sub.slot.x) + ',' + r0(p.sub.slot.y) + ' ' + r0(p.sub.slot.w) + 'x' + r0(p.sub.slot.h) : ''}`);
 }
 console.log(`\nfurthest right edge ${r0(worstRight)}px (limit ${r0(limit)}) · tallest stack ${r0(tallest)}px`);

@@ -8,10 +8,14 @@
 //
 // Design language ("tile build"): a rounded station tile carrying the mark,
 // an optional badge tile (article number), then a stack of bars — the name bar,
-// a thin brand stripe, and a light sub bar. The build-in animation assembles
-// the title piece by piece: the tile pops in, the arches draw on, the name bar
-// extends out of the tile, the name wipes in, the stripe draws, the sub bar
-// wipes out underneath and its text settles. The out reverses the build.
+// a thin brand stripe, and a light sub bar. Two tabs can rise out of the top
+// edge: the station's website at the left (in the tile's colour, so it reads
+// as a piece of the tile jutting up) and an article's petitioner at the
+// right (in the sub bar's colours). The build-in animation assembles the
+// title piece by piece: the tile pops in, the arches draw on, the name bar
+// extends out of the tile, the website tab rises, the name wipes in, the
+// stripe draws, the sub bar wipes out underneath and its text settles. The
+// out reverses the build.
 
 /** @typedef {{id?:string,type:'show'|'speaker'|'article',badge:string,primary:string,secondary:string,size?:'auto'|'standard'|'large',textScale?:number}} TitleItem */
 
@@ -234,7 +238,11 @@ function computeLayout(ctx, item, theme, opts) {
   const showTile = markStyle !== 'none' && (type === 'show' || FL.markOnAll !== false);
 
   /** @type {any} */
-  const plan = { u, W, H, r, type, large: false, tile: null, badge: null, bar: null, stripe: null, sub: null, tab: null };
+  const plan = { u, W, H, r, type, large: false, tile: null, badge: null, bar: null, stripe: null, sub: null, tab: null, url: null };
+
+  // The station's website, shown as a tab at the top-left of every title.
+  // When the tab is off, show IDs still carry it on their second line.
+  const urlText = FL.urlTab !== false ? String(id.url ?? '').replace(/\s+/g, ' ').trim() : '';
 
   // --- badge (article number) -------------------------------------------
   let badge = null;
@@ -319,7 +327,13 @@ function computeLayout(ctx, item, theme, opts) {
   // --- sub bar -----------------------------------------------------------
   let subText = String(item.secondary ?? '').trim();
   if (type === 'show' && !subText) {
-    subText = `${id.org ?? ''}${id.url ? ' · ' + id.url : ''}`.trim();
+    subText = `${id.org ?? ''}${id.url && !urlText ? ' · ' + id.url : ''}`.trim();
+  }
+  if (urlText && subText) {
+    // the website is on its own tab, so a tag line that repeats it drops it
+    const parts = subText.split(/\s+[\u00b7\u2022|]\s+/);
+    const keep = parts.filter((p) => p.trim().toLowerCase() !== urlText.toLowerCase());
+    if (keep.length < parts.length) subText = keep.join(' \u00b7 ');
   }
   // The project date (opts.dateText, on when opts.datePlace isn't 'off')
   // continues the line after a dot — "Brookline Special Town Meeting ·
@@ -404,6 +418,40 @@ function computeLayout(ctx, item, theme, opts) {
     tab = { text, kick: kickText, kickTracking, kickGap, padX: TAB_PAD, size: m.size, kickSize: m.kickSize, kickW: m.kickW, nameW: m.nameW, w: m.w, h: Math.round(m.size * 1.9) };
   }
 
+  // --- website tab -------------------------------------------------------
+  // A small line of lowercase type on a tab flush with the left edge of the
+  // title, jutting out of the top of whatever is leftmost (the tile, else
+  // the badge or the name bar). It may run past the tile but never past the
+  // title itself.
+  let url = null;
+  if (urlText) {
+    const URL_PAD = 20 * u;
+    const maxW = (barsX - tileX) + Math.max(barW, sub ? sub.w : 0, tab ? tab.w : 0);
+    const measureUrl = (size, text) => {
+      setFont(ctx, F.textWeight ?? 600, size, F.text);
+      const textW = measure(ctx, text);
+      return { size, textW, w: URL_PAD * 2 + textW };
+    };
+    let text = urlText;
+    let m = measureUrl(20 * u * kSub, text);
+    if (m.w > maxW) m = measureUrl(Math.max(13 * u, m.size * (maxW / m.w)), text);
+    if (m.w > maxW) { // still too wide at the floor: shorten it
+      const budget = maxW - URL_PAD * 2;
+      setFont(ctx, F.textWeight ?? 600, m.size, F.text);
+      while (text.length > 4 && measure(ctx, text + '\u2026') > budget) text = text.slice(0, -1).trimEnd();
+      text += '\u2026';
+      m = { size: m.size, textW: measure(ctx, text), w: maxW };
+    }
+    // A tab that would end over the badge runs to the badge's right edge
+    // instead, so the silhouette stays simple: a lid over the tile and badge.
+    if (badge) {
+      const end = tileX + m.w;
+      const badgeRight = badgeX + badge.w;
+      if (end > (showTile ? tileX + TILE : tileX) && end < badgeRight) m.w = badgeRight - tileX;
+    }
+    url = { text, padX: URL_PAD, size: m.size, w: m.w, h: Math.round(m.size * 1.9) };
+  }
+
   // --- vertical stack ----------------------------------------------------
   const stripeOn = FL.stripe !== false && (C.stripes?.length ?? 0) > 0;
   const stripeH = stripeOn ? STRIPE_H : 0;
@@ -414,8 +462,14 @@ function computeLayout(ctx, item, theme, opts) {
   const stackY = bottom - groupH + (groupH - stackH) / 2;
   const tileY = bottom - groupH + (groupH - tileH) / 2;
 
+  // --- bar width -----------------------------------------------------------
+  // The bar grows to carry the petitioner tab, and when the website tab is
+  // there too, far enough that the two share the top edge without touching.
+  let barWFinal = Math.max(barW, tab ? tab.w : 0);
+  if (tab && url) barWFinal = Math.max(barWFinal, Math.min(availW, (tileX + url.w + 12 * u) - barsX + tab.w));
+
   // --- horizontal centering (optional) ----------------------------------
-  const rightEdge = barsX + Math.max(barW, sub ? sub.w : 0, tab ? tab.w : 0);
+  const rightEdge = Math.max(barsX + Math.max(barWFinal, sub ? sub.w : 0), tileX + (url ? url.w : 0));
   let shift = 0;
   if (L.position === 'center') shift = (W - (rightEdge - tileX)) / 2 - tileX;
 
@@ -457,13 +511,18 @@ function computeLayout(ctx, item, theme, opts) {
   if (badge) {
     plan.badge = { ...badge, x: badgeX + shift, y: tileY, h: tileH };
   }
-  const barWFinal = Math.max(barW, tab ? tab.w : 0);
   plan.bar = {
     x: barsX + shift, y: stackY, w: barWFinal, h: barH,
     padX: PAD_X, padY, lines, size, lineH, family, weight,
   };
   if (tab) {
     plan.tab = { ...tab, x: barsX + shift + barWFinal - tab.w, y: stackY - tab.h };
+  }
+  if (url) {
+    // `top` is the top of what it rises out of (the tile and badge sit a
+    // little below the bar's top edge, `line`)
+    const top = (showTile || badge) ? tileY : stackY;
+    plan.url = { ...url, x: tileX + shift, y: top - url.h, top, line: stackY, onTile: showTile };
   }
   if (stripeOn) {
     plan.stripe = { x: barsX + shift, y: stackY + barH, w: barWFinal, h: stripeH, colors: C.stripes };
@@ -512,11 +571,12 @@ function buildStages(inP, outP) {
     sub: S(0.64, 0.9, easeOutQuint, 0.08, 0.36, easeInCubic),
     subText: S(0.8, 1.0, easeOutCubic, 0.0, 0.18, easeInQuad),
     tab: S(0.7, 0.96, easeOutQuint, 0.1, 0.4, easeInCubic),
+    url: S(0.46, 0.74, easeOutQuint, 0.2, 0.48, easeInCubic), // after the badge has settled from its pop
   };
 }
 
 const AT_REST = {
-  tile: 1, arcs: [1, 1, 1], label: 1, badge: 1, bar: 1, name: 1, stripe: [1, 1, 1, 1], sub: 1, subText: 1, tab: 1,
+  tile: 1, arcs: [1, 1, 1], label: 1, badge: 1, bar: 1, name: 1, stripe: [1, 1, 1, 1], sub: 1, subText: 1, tab: 1, url: 1,
 };
 
 // ------------------------------------------------------------------- paint ---
@@ -597,6 +657,13 @@ export function drawFrame(ctx, t, item, theme, opts) {
   const labelFont = F.label ?? F.text;
   const labelWeight = F.labelWeight ?? 700;
 
+  // The website tab sits on the top edge of the tile, badge and bar: the
+  // corners under it straighten as it rises (square once it is a corner's
+  // height out), and round again as it sinks back.
+  const urlRight = plan.url ? plan.url.x + plan.url.w : -Infinity;
+  const rUnder = plan.url ? r * (1 - Math.min(1, st.url * 3)) : r;
+  const underUrl = (x, w) => ({ tl: urlRight > x ? rUnder : r, tr: urlRight >= x + w ? rUnder : r });
+
   // --- station tile -------------------------------------------------------
   if (plan.tile && st.tile > 0) {
     const T = plan.tile;
@@ -607,7 +674,7 @@ export function drawFrame(ctx, t, item, theme, opts) {
     ctx.scale(Math.max(0.001, s), Math.max(0.001, s));
     ctx.translate(-cx, -cy);
     setShadow();
-    rrect(ctx, T.x, T.y, T.w, T.h, r);
+    rrectCorners(ctx, T.x, T.y, T.w, T.h, { ...underUrl(T.x, T.w), br: r, bl: r });
     ctx.fillStyle = C.tile;
     ctx.fill();
     clearShadow();
@@ -652,7 +719,7 @@ export function drawFrame(ctx, t, item, theme, opts) {
     ctx.scale(Math.max(0.001, s), Math.max(0.001, s));
     ctx.translate(-cx, -cy);
     setShadow();
-    rrect(ctx, B.x, B.y, B.w, B.h, r);
+    rrectCorners(ctx, B.x, B.y, B.w, B.h, { ...underUrl(B.x, B.w), br: r, bl: r });
     ctx.fillStyle = C.badgeBg;
     ctx.fill();
     clearShadow();
@@ -718,13 +785,43 @@ export function drawFrame(ctx, t, item, theme, opts) {
     ctx.save();
     setShadow();
     // bottom corners are square when a stripe or sub bar continues the stack;
-    // the top-right one is square under the petitioner tab
+    // the top ones under the petitioner tab (right) and the website tab (left)
     const squareBottom = !!(plan.stripe || plan.sub);
     const tr = plan.tab ? 0 : r;
-    rrectCorners(ctx, bar.x, bar.y, Math.max(1, barW), bar.h, { tl: r, tr, br: squareBottom ? 0 : r, bl: squareBottom ? 0 : r });
+    const tl = urlRight > bar.x ? rUnder : r;
+    rrectCorners(ctx, bar.x, bar.y, Math.max(1, barW), bar.h, { tl, tr, br: squareBottom ? 0 : r, bl: squareBottom ? 0 : r });
     ctx.fillStyle = C.bar;
     ctx.fill();
     clearShadow();
+    ctx.restore();
+  }
+
+  // --- website tab (rises out of the top-left) ----------------------------------
+  if (plan.url && st.url > 0) {
+    const U = plan.url;
+    const y = U.top - U.h * st.url;
+    ctx.save();
+    // Painted only above the bar's top edge, plus the thin strips between
+    // that edge and the tops of the tile and badge, which sit a little lower:
+    // the tab grows out of whatever is beneath it and nothing of it, or of
+    // its shadow, lands on the pieces below.
+    ctx.beginPath();
+    ctx.rect(U.x - 40 * u, y - 40 * u, U.w + 80 * u, U.line - (y - 40 * u));
+    for (const P of [plan.tile, plan.badge]) {
+      if (!P) continue;
+      const w = Math.min(P.w, urlRight - P.x);
+      if (w > 0 && P.y > U.line) ctx.rect(P.x, U.line - 0.5, w, P.y - U.line + 1);
+    }
+    ctx.clip();
+    setShadow(0.22);
+    rrectCorners(ctx, U.x, y, U.w, U.h + r, { tl: r, tr: r, br: 0, bl: 0 });
+    ctx.fillStyle = U.onTile ? C.tile : C.bar;
+    ctx.fill();
+    clearShadow();
+    ctx.globalAlpha *= Math.min(1, st.url * 1.4);
+    setFont(ctx, F.textWeight ?? 600, U.size, F.text);
+    ctx.fillStyle = U.onTile ? (C.label ?? C.text) : C.text;
+    ctx.fillText(U.text, U.x + U.padX, y + U.h / 2 + U.size * 0.36);
     ctx.restore();
   }
 

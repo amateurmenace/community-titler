@@ -82,6 +82,8 @@ export interface ThemeDef {
     subBar: boolean;
     petitionerTab: boolean;
     petitionerKicker: boolean;
+    /** the station website on a tab at the top-left of every title (off: show IDs carry it on line 2) */
+    urlTab: boolean;
   };
   animation: Animation;
   /** data-URL of an uploaded station logo (PNG with alpha recommended) */

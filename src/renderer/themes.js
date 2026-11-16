@@ -8,7 +8,7 @@
 // Margins sit inside action-safe rather than title-safe (64px / 56px at
 // 1080p): modern TVs don't overscan, and the room goes to bigger type.
 const LAYOUT = { position: 'left', marginX: 64, marginY: 56, maxWidth: 0.75, cornerRadius: 14, scale: 1 };
-const FLAGS = { stripe: true, shadow: true, uppercaseBadge: true, uppercaseTag: false, markOnAll: true, subBar: true, petitionerTab: true, petitionerKicker: true };
+const FLAGS = { stripe: true, shadow: true, uppercaseBadge: true, uppercaseTag: false, markOnAll: true, subBar: true, petitionerTab: true, petitionerKicker: true, urlTab: true };
 
 export const BUILT_IN_THEMES = [
   {

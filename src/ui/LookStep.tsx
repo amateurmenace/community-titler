@@ -219,10 +219,15 @@ export function LookRail(props: {
             <label className="fld"><span>Short mark <span className="val">on the tile</span></span>
               <input value={theme.identity.short} maxLength={6} onChange={(e) => patch((t) => { t.identity.short = e.target.value; })} />
             </label>
-            <label className="fld"><span>URL <span className="val">show ID line 2</span></span>
-              <input value={theme.identity.url} onChange={(e) => patch((t) => { t.identity.url = e.target.value; })} />
+            <label className="fld"><span>Website</span>
+              <input value={theme.identity.url} placeholder="yourstation.org" onChange={(e) => patch((t) => { t.identity.url = e.target.value; })} />
             </label>
           </div>
+          <label className="check">
+            <input type="checkbox" checked={theme.flags.urlTab !== false} onChange={(e) => patch((t) => { t.flags.urlTab = e.target.checked; })} />
+            Website on a tab at the top-left of every title
+          </label>
+          <span className="hint">The tab rises out of the tile in its colour. Off, the website goes on the show ID's second line instead.</span>
           <label className="fld"><span>Tile mark</span>
             <select value={theme.identity.markStyle} onChange={(e) => patch((t) => { t.identity.markStyle = e.target.value as MarkStyle; })}>
               <option value="arches">Rainbow arches + short mark</option>

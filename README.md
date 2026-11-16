@@ -23,22 +23,22 @@ The desktop app bundles its own ffmpeg, so ProRes and WebM exports take seconds 
 
 ## What it makes
 
-Three kinds of lower thirds. Each one *builds* on screen — the station tile pops in, the arches draw on, the name bar extends out of the tile, the name wipes in, the brand stripe draws, and the role bar slides out underneath — then holds, then reverses out. They sit low and left (64 px in, 56 px up at 1080p — inside action-safe, not title-safe) and never run past 75% of the frame width, so the lower-right stays clear for closed captions.
+Three kinds of lower thirds. Each one *builds* on screen — the station tile pops in, the arches draw on, the name bar extends out of the tile, your **website** rises out of the top-left on a tab, the name wipes in, the brand stripe draws, and the role bar slides out underneath — then holds, then reverses out. They sit low and left (64 px in, 56 px up at 1080p — inside action-safe, not title-safe) and never run past 75% of the frame width, so the lower-right stays clear for closed captions.
 
 | Type | For | Example |
 |---|---|---|
 | **Speaker** | Who's talking — name + role | *Jordan Example · Town Moderator* |
-| **Show ID** | Opening a program — title + your station line | *Brookline Special Town Meeting 2026 · Brookline Interactive Group · brooklineinteractive.org* |
+| **Show ID** | Opening a program — title + your station line | *Brookline Special Town Meeting 2026 · Brookline Interactive Group* |
 | **Article** | Dense info cards — number badge + full article title + meeting tag, with the **petitioner** on a tab above the title's right end. Long titles switch to a **Large** layout on their own: bigger type on up to four lines, never wider than the look's **Max width** (75% of the frame by default) | *Article 7 · Create a new Section 8.XX of the General By-Laws banning cryptocurrency kiosks · Petitioner: Shapiro, Fischer, TMM11* |
 
-Any title can also carry the **date**, typed once for the whole project: it continues the tag or role line after a dot — *Brookline Special Town Meeting · November 17, 2026* — replacing a month, year or date the line already ends with. Leave it blank and the line ends in an empty slot that a text source in OBS can fill with the live date (see [A live date from OBS](#a-live-date-from-obs)). Press <kbd>Enter</kbd> while typing a title to break a line where you want it.
+Every title carries the station's **website** on a small tab jutting out of the top-left corner, in the tile's own colour (set it under Station identity in the Look step, or turn the tab off there and the website goes on the show ID's second line instead). Any title can also carry the **date**, typed once for the whole project: it continues the tag or role line after a dot — *Brookline Special Town Meeting · November 17, 2026* — replacing a month, year or date the line already ends with. Leave it blank and the line ends in an empty slot that a text source in OBS can fill with the live date (see [A live date from OBS](#a-live-date-from-obs)). Press <kbd>Enter</kbd> while typing a title to break a line where you want it.
 
 ![Examples](docs/examples/montage.png)
 
 ## Three steps
 
 1. **Titles** — add speakers, show IDs and articles one at a time, or **Import spreadsheet** (CSV, Excel, or paste straight from Google Sheets). Click any title to preview and edit it; <kbd>Enter</kbd> starts a new line. Articles have a **Petitioner** field (the tab above the title). Each title has a **Size on screen** (Auto / Standard / Large) and a text-size nudge; Auto goes Large whenever a title would otherwise come out small. **Date on every title** lives at the top of the list.
-2. **Look** — the gallery sits under the preview; every adjustment is in the left column so the video stays in view while you drag: **Placement & size** (max width, left and bottom margins, scale, corners, position), **Type** (fonts, weights and sizes for names, article titles, sub bar and tabs, tile mark, badge), **Colors**, **Station identity** (name, mark, logo) and **Motion & extras**. The first change makes the look your own copy; the built-in stays as it is.
+2. **Look** — the gallery sits under the preview; every adjustment is in the left column so the video stays in view while you drag: **Placement & size** (max width, left and bottom margins, scale, corners, position), **Type** (fonts, weights and sizes for names, article titles, sub bar and tabs, tile mark, badge), **Colors**, **Station identity** (name, mark, logo, website tab) and **Motion & extras**. The first change makes the look your own copy; the built-in stays as it is.
 3. **Export** — choose a format, timing and a folder, tick the titles you want, and **Export**. Press <kbd>Space</kbd> anywhere to play the preview.
 
 Projects auto-save in the app; **Project → Save project file** writes a portable `.titler.json` you can archive or move between machines.
@@ -96,7 +96,7 @@ Prefer a Text source? [K_STYER's Dynamic Time and Date Display](https://obsproje
 
 Five built-in looks: **BIG — Brookline Interactive** (navy tiles, the rainbow arches over a big Montserrat **BIG**, tri-color stripe, Fraunces serif names), **Civic Green** (the [Community AI Project](https://github.com/amateurmenace/community-ai-project) palette — forest green, lime, cream), neutral **Broadcast Slate**, civic **Town Hall**, and **Minimal Light**.
 
-To rebrand for your station: in **Look**, start changing things — the first edit turns the built-in into your own copy, saved with the project. Set your station name, short mark and URL, upload a **logo PNG** for the tile, pick fonts and weights (Fraunces, DM Sans, Inter, JetBrains Mono and Montserrat are bundled; add your own `.ttf`), set the **type sizes** (name / show title, article title, sub bar and tabs, tile mark, badge — each a percentage of the look's default), move the titles with the **margin** and **max width** sliders, set every color, and choose the motion. **Export** the look as a `.theme.json` to share with your team — or open a PR to add your station's look as a built-in.
+To rebrand for your station: in **Look**, start changing things — the first edit turns the built-in into your own copy, saved with the project. Set your station name, short mark and website (it rides on the tab at the top-left of every title), upload a **logo PNG** for the tile, pick fonts and weights (Fraunces, DM Sans, Inter, JetBrains Mono and Montserrat are bundled; add your own `.ttf`), set the **type sizes** (name / show title, article title, sub bar and tabs, tile mark, badge — each a percentage of the look's default), move the titles with the **margin** and **max width** sliders, set every color, and choose the motion. **Export** the look as a `.theme.json` to share with your team — or open a PR to add your station's look as a built-in.
 
 ## CLI batch rendering
 
