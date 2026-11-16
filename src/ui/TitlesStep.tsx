@@ -1,10 +1,11 @@
-import type { ItemSize, ItemType, TitleItem } from '../types';
+import type { DatePlace, ExportSettings, ItemSize, ItemType, TitleItem } from '../types';
 import { badgeNumber } from '../shared/csv.js';
 import { IArrowRight, ICopy, IDown, IPlus, ISparkle, ITrash, IUp, IUpload } from './icons';
 
 const TYPE_LABEL: Record<ItemType, string> = { show: 'Show ID', speaker: 'Speaker', article: 'Article' };
 const TYPE_TONE: Record<ItemType, string> = { show: 'sky', speaker: '', article: 'purple' };
 const SIZE_LABEL: Record<ItemSize, string> = { auto: 'Auto', standard: 'Standard', large: 'Large' };
+const DATE_LABEL: Record<DatePlace, string> = { off: 'Off', title: 'On the title', corner: 'Top-left corner' };
 
 /** "Article 7" → "7", "Article 12A" → "12A", anything without a number → null */
 const artNo = (badge: string): string | null => {
@@ -15,12 +16,16 @@ const artNo = (badge: string): string | null => {
 export function TitlesRail(props: {
   items: TitleItem[];
   selectedId: string | null;
+  settings: ExportSettings;
+  onSettings: (settings: ExportSettings) => void;
   onSelect: (id: string) => void;
   onAdd: (type: ItemType) => void;
   onImport: () => void;
   onLoadSample: () => void;
 }) {
-  const { items, selectedId, onSelect, onAdd, onImport, onLoadSample } = props;
+  const { items, selectedId, settings, onSettings, onSelect, onAdd, onImport, onLoadSample } = props;
+  const place: DatePlace = settings.datePlace ?? 'off';
+  const dateText = settings.dateText ?? '';
   return (
     <>
       <div className="rail-head">
@@ -36,6 +41,35 @@ export function TitlesRail(props: {
         <button className="btn sm" onClick={() => onAdd('article')}><IPlus /> Article</button>
       </div>
       <button className="btn primary block" onClick={onImport}><IUpload /> Import spreadsheet · CSV · paste</button>
+
+      <div className="datecard">
+        <div className="datecard-head">
+          <span className="fldlabel">Date on every title</span>
+          <div className="typepick" role="radiogroup" aria-label="Date placement">
+            {(['off', 'title', 'corner'] as DatePlace[]).map((p) => (
+              <button key={p} className={place === p ? 'on' : ''} onClick={() => onSettings({ ...settings, datePlace: p })} role="radio" aria-checked={place === p}>
+                {DATE_LABEL[p]}
+              </button>
+            ))}
+          </div>
+        </div>
+        {place !== 'off' && (
+          <>
+            <input
+              placeholder="November 17, 2026 — or leave blank for an empty plate"
+              value={dateText}
+              onChange={(e) => onSettings({ ...settings, dateText: e.target.value })}
+              aria-label="Date text"
+            />
+            <p className="hint">
+              {dateText.trim()
+                ? (place === 'title' ? 'A tab on the top-left of the name bar, on every title.' : 'A chip in the top-left corner of the frame, on every title.')
+                : 'Blank: an empty plate is drawn so a text source in OBS can show the date live. Its pixel position is shown above the preview'
+                  + (place === 'title' ? ' — it moves with each title, so use the corner placement for OBS.' : '.')}
+            </p>
+          </>
+        )}
+      </div>
 
       {items.length === 0 ? (
         <div className="empty">
@@ -157,24 +191,38 @@ export function TitleEditor(props: {
           </div>
         )}
         <label className="fld">
-          <span>{item.type === 'speaker' ? 'Name' : item.type === 'show' ? 'Program title' : 'Article title'}</span>
+          <span>
+            {item.type === 'speaker' ? 'Name' : item.type === 'show' ? 'Program title' : 'Article title'}
+            <span className="val">Enter starts a new line</span>
+          </span>
           {item.type === 'article' ? (
             <textarea
+              className="multiline"
               rows={2}
-              style={{ fontFamily: 'var(--font)', fontSize: 15, fontWeight: 600, minHeight: 64 }}
               value={item.primary}
               onChange={(e) => onPatch({ primary: e.target.value })}
               placeholder="Full title of the warrant article (wraps to three lines, four in Large)"
             />
           ) : (
-            <input
-              className="input-lg"
+            <textarea
+              className="multiline input-lg"
+              rows={1}
               placeholder={item.type === 'speaker' ? 'Jordan Example' : 'Select Board Meeting'}
               value={item.primary}
               onChange={(e) => onPatch({ primary: e.target.value })}
             />
           )}
         </label>
+        {item.type === 'article' && (
+          <label className="fld">
+            <span>Petitioner <span className="val">tab above the title, right-aligned — blank for none</span></span>
+            <input
+              placeholder="Select Board · or · Gordon, TMM1, Friedman, TMM12"
+              value={item.petitioner ?? ''}
+              onChange={(e) => onPatch({ petitioner: e.target.value })}
+            />
+          </label>
+        )}
         {item.type !== 'article' && (
           <label className="fld">
             <span>

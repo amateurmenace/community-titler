@@ -5,87 +5,24 @@ import type { Animation, MarkStyle, ThemeDef, TitleItem } from '../types';
 import ThemeThumb from './ThemeThumb';
 import { IArrowRight, IChevron, ICopy, IDownload, ITrash, IUpload } from './icons';
 
-export function LookRail(props: {
-  themeId: string;
-  customThemes: ThemeDef[];
-  fontsReady: boolean;
-  previewItem: TitleItem;
-  onSelect: (id: string) => void;
-  onDuplicate: () => void;
-  onImportTheme: (file: File) => void;
-  onExportTheme: () => void;
-  onDeleteCustom: (id: string) => void;
-}) {
-  const { themeId, customThemes, fontsReady, previewItem, onSelect, onDuplicate, onImportTheme, onExportTheme, onDeleteCustom } = props;
-  const fileRef = useRef<HTMLInputElement>(null);
-  const all = [...(BUILT_IN_THEMES as ThemeDef[]), ...customThemes];
-
-  return (
-    <>
-      <div className="rail-head">
-        <h2>Look</h2>
-        <span className="count">{all.length}</span>
-      </div>
-      <p className="rail-intro">Pick a built-in look, or duplicate one and make it your station's own — colors, fonts, logo, motion.</p>
-
-      <div className="btnrow">
-        <button className="btn sm primary" onClick={onDuplicate}><ICopy /> Duplicate &amp; customize</button>
-        <button className="btn sm" onClick={onExportTheme} title="Save this look as a .theme.json to share"><IDownload /> Export</button>
-        <button className="btn sm" onClick={() => fileRef.current?.click()} title="Load a .theme.json"><IUpload /> Import</button>
-        <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }}
-          onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onImportTheme(f); }} />
-      </div>
-
-      <div className="themegrid">
-        {all.map((t) => {
-          const custom = customThemes.some((c) => c.id === t.id);
-          return (
-            <div
-              key={t.id}
-              className={`theme-card ${t.id === themeId ? 'sel' : ''}`}
-              onClick={() => onSelect(t.id)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(t.id); } }}
-            >
-              <ThemeThumb theme={t} item={previewItem} fontsReady={fontsReady} />
-              <div className="body">
-                <div className="name">
-                  {t.name}
-                  {custom && <span className="badge amber" style={{ fontSize: 9 }}>Custom</span>}
-                  <span className="spacer" />
-                  {custom && (
-                    <button className="btn xs ghost danger" onClick={(e) => { e.stopPropagation(); onDeleteCustom(t.id); }} title="Delete this custom look">
-                      <ITrash style={{ width: 13, height: 13 }} />
-                    </button>
-                  )}
-                </div>
-                <div className="desc">{t.description ?? 'Custom look'}</div>
-                <div className="chips">
-                  {[t.colors.tile, t.colors.bar, t.colors.subBar, t.colors.badgeBg, ...t.colors.stripes.slice(0, 3)].map((c, i) => (
-                    <i key={i} style={{ background: c }} />
-                  ))}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </>
-  );
-}
-
 const WEIGHTS = [400, 500, 600, 700, 800, 900];
 
-export function LookEditor(props: {
+/**
+ * The left column of the Look step: every adjustment to the current look,
+ * in accordions. It scrolls on its own, so the preview on the right stays
+ * in view while a slider is dragged.
+ */
+export function LookRail(props: {
   theme: ThemeDef;
   isCustom: boolean;
   onPatch: (fn: (t: ThemeDef) => void) => void;
   onDuplicate: () => void;
-  onNext: () => void;
+  onImportTheme: (file: File) => void;
+  onExportTheme: () => void;
   showToast: (msg: string) => void;
 }) {
-  const { theme, isCustom, onPatch: patch, onDuplicate, onNext, showToast } = props;
+  const { theme, isCustom, onPatch: patch, onDuplicate, onImportTheme, onExportTheme, showToast } = props;
+  const fileRef = useRef<HTMLInputElement>(null);
   const logoRef = useRef<HTMLInputElement>(null);
   const fontRef = useRef<HTMLInputElement>(null);
   const [pendingFont, setPendingFont] = useState<File | null>(null);
@@ -95,6 +32,7 @@ export function LookEditor(props: {
 
   const C = theme.colors;
   const F = theme.fonts;
+  const L = theme.layout;
   const fam = availableFontFamilies();
 
   const uploadLogo = async (file: File) => {
@@ -135,213 +73,273 @@ export function LookEditor(props: {
     </label>
   );
 
+  const fontPick = (label: string, family: string, weight: number, setFamily: (v: string) => void, setWeight: (v: number) => void) => (
+    <div className="fontrow">
+      <label className="fld"><span>{label}</span>
+        <select value={family} onChange={(e) => setFamily(e.target.value)}>
+          {fam.map((f) => <option key={f} value={f}>{f}</option>)}
+        </select>
+      </label>
+      <label className="fld"><span>Weight</span>
+        <select value={weight} onChange={(e) => setWeight(+e.target.value)}>
+          {WEIGHTS.map((w) => <option key={w} value={w}>{w}</option>)}
+        </select>
+      </label>
+    </div>
+  );
+
+  return (
+    <>
+      <div className="rail-head">
+        <h2>Look</h2>
+        <div className="spacer" />
+        <button className="btn xs" onClick={onExportTheme} title="Save this look as a .theme.json to share"><IDownload /> Export</button>
+        <button className="btn xs" onClick={() => fileRef.current?.click()} title="Load a .theme.json"><IUpload /> Import</button>
+        <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }}
+          onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onImportTheme(f); }} />
+      </div>
+      <p className="rail-intro">
+        Adjusting <b>{theme.name}</b>
+        {isCustom ? ' — your own copy, saved with the project.' : ' — a built-in look. The first change makes your own copy; the built-in stays as it is.'}
+        {' '}Pick a different look under the preview.
+      </p>
+      {!isCustom && (
+        <button className="btn sm primary" onClick={onDuplicate}><ICopy /> Duplicate &amp; customize</button>
+      )}
+
+      <details className="acc" open>
+        <summary>Placement &amp; size <IChevron className="chev" /></summary>
+        <div className="body">
+          <div className="grid2">
+            <label className="fld"><span>Max width <span className="val">{Math.round((L.maxWidth ?? 0.75) * 100)}%</span></span>
+              <input type="range" min={0.4} max={0.94} step={0.01} value={L.maxWidth ?? 0.75} onChange={(e) => patch((t) => { t.layout.maxWidth = +e.target.value; })} />
+            </label>
+            <label className="fld"><span>Scale <span className="val">{L.scale.toFixed(2)}×</span></span>
+              <input type="range" min={0.7} max={1.4} step={0.05} value={L.scale} onChange={(e) => patch((t) => { t.layout.scale = +e.target.value; })} />
+            </label>
+            <label className="fld"><span>Left margin <span className="val">{L.marginX}px</span></span>
+              <input type="range" min={24} max={300} step={4} value={L.marginX} onChange={(e) => patch((t) => { t.layout.marginX = +e.target.value; })} />
+            </label>
+            <label className="fld"><span>Bottom margin <span className="val">{L.marginY}px</span></span>
+              <input type="range" min={24} max={300} step={4} value={L.marginY} onChange={(e) => patch((t) => { t.layout.marginY = +e.target.value; })} />
+            </label>
+            <label className="fld"><span>Corner radius <span className="val">{L.cornerRadius}</span></span>
+              <input type="range" min={0} max={30} value={L.cornerRadius} onChange={(e) => patch((t) => { t.layout.cornerRadius = +e.target.value; })} />
+            </label>
+            <label className="fld"><span>Position</span>
+              <select value={L.position} onChange={(e) => patch((t) => { t.layout.position = e.target.value as 'left' | 'center'; })}>
+                <option value="left">Lower left</option>
+                <option value="center">Lower center</option>
+              </select>
+            </label>
+          </div>
+          <p className="hint">
+            <b>Max width</b> keeps the lower-right of the frame clear for closed captions. Margins are measured at 1080p and default to 64 / 56 px — inside action-safe, not title-safe.
+            Type sizes are under <b>Type</b>; per-title Large and text-size nudges live in the Titles step.
+          </p>
+        </div>
+      </details>
+
+      <details className="acc" open>
+        <summary>Type <IChevron className="chev" /></summary>
+        <div className="body">
+          {fontPick('Names & show titles', F.display, F.displayWeight, (v) => patch((t) => { t.fonts.display = v; }), (v) => patch((t) => { t.fonts.displayWeight = v; }))}
+          {fontPick('Article titles, sub bar & tabs', F.text, F.textWeight, (v) => patch((t) => { t.fonts.text = v; }), (v) => patch((t) => { t.fonts.textWeight = v; }))}
+          {fontPick('Tile mark & badge', F.label, F.labelWeight, (v) => patch((t) => { t.fonts.label = v; }), (v) => patch((t) => { t.fonts.labelWeight = v; }))}
+          <div className="grid2">
+            {size('Name / show title size', F.displaySize, (v) => patch((t) => { t.fonts.displaySize = v; }))}
+            {size('Article title size', F.textSize, (v) => patch((t) => { t.fonts.textSize = v; }))}
+            {size('Sub bar & tab size', F.subSize, (v) => patch((t) => { t.fonts.subSize = v; }))}
+            {size('Tile mark size', F.labelSize, (v) => patch((t) => { t.fonts.labelSize = v; }))}
+            {size('Badge size', F.badgeSize, (v) => patch((t) => { t.fonts.badgeSize = v; }))}
+            <div className="fld">
+              <span className="fldlabel">&nbsp;</span>
+              <button className="btn xs ghost" onClick={() => patch((t) => { t.fonts.displaySize = 1; t.fonts.textSize = 1; t.fonts.subSize = 1; t.fonts.labelSize = 1; t.fonts.badgeSize = 1; })}>Reset sizes</button>
+            </div>
+          </div>
+          <div className="btnrow">
+            <button className="btn sm" onClick={() => fontRef.current?.click()}><IUpload /> Add a font file (.ttf / .otf)…</button>
+            <input ref={fontRef} type="file" accept=".ttf,.otf,.woff,.woff2" style={{ display: 'none' }}
+              onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) { setPendingFont(f); setFontFamily(f.name.replace(/\.[^.]+$/, '').replace(/[-_](Bold|Regular|Medium|Black|Light|SemiBold|ExtraBold)$/i, '')); } }} />
+          </div>
+          <span className="hint">Fonts you add live in this browser/app only. The CLI batch renderer uses the files in <code>public/fonts</code>.</span>
+          {pendingFont && (
+            <div className="note-box">
+              <div className="grid2" style={{ alignItems: 'end' }}>
+                <label className="fld"><span>Family name</span>
+                  <input value={fontFamily} onChange={(e) => setFontFamily(e.target.value)} />
+                </label>
+                <label className="fld"><span>Weight of this file</span>
+                  <select value={fontWeight} onChange={(e) => setFontWeight(+e.target.value)}>
+                    {WEIGHTS.map((w) => <option key={w} value={w}>{w}</option>)}
+                  </select>
+                </label>
+              </div>
+              <div className="btnrow" style={{ marginTop: 10 }}>
+                <button className="btn sm primary" onClick={confirmFont} disabled={!fontFamily.trim()}>Add {pendingFont.name}</button>
+                <button className="btn sm ghost" onClick={() => setPendingFont(null)}>Cancel</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </details>
+
+      <details className="acc">
+        <summary>Colors <IChevron className="chev" /></summary>
+        <div className="body">
+          <div className="swatchgrid">
+            {color('Tile', () => C.tile, (v) => patch((t) => { t.colors.tile = v; }))}
+            {color('Name bar', () => C.bar, (v) => patch((t) => { t.colors.bar = v; }))}
+            {color('Name text', () => C.text, (v) => patch((t) => { t.colors.text = v; }))}
+            {color('Sub bar & tabs', () => C.subBar, (v) => patch((t) => { t.colors.subBar = v; }))}
+            {color('Sub bar text', () => C.subText, (v) => patch((t) => { t.colors.subText = v; }))}
+            {color('Tile mark text', () => C.label, (v) => patch((t) => { t.colors.label = v; }))}
+            {color('Badge', () => C.badgeBg, (v) => patch((t) => { t.colors.badgeBg = v; }))}
+            {color('Badge text', () => C.badgeText, (v) => patch((t) => { t.colors.badgeText = v; }))}
+          </div>
+          <label className="fld"><span>Stripe colors <span className="val">comma-separated hex</span></span>
+            <input value={C.stripes.join(', ')} onChange={(e) => patch((t) => { t.colors.stripes = e.target.value.split(',').map((s) => s.trim()).filter(Boolean); })} />
+          </label>
+          <label className="fld"><span>Arch colors <span className="val">outer → inner</span></span>
+            <input value={C.archColors.join(', ')} onChange={(e) => patch((t) => { t.colors.archColors = e.target.value.split(',').map((s) => s.trim()).filter(Boolean); })} />
+          </label>
+        </div>
+      </details>
+
+      <details className="acc">
+        <summary>Station identity <IChevron className="chev" /></summary>
+        <div className="body">
+          <label className="fld"><span>Look name</span>
+            <input value={theme.name} onChange={(e) => patch((t) => { t.name = e.target.value; })} />
+          </label>
+          <label className="fld"><span>Station / organization</span>
+            <input value={theme.identity.org} onChange={(e) => patch((t) => { t.identity.org = e.target.value; })} />
+          </label>
+          <div className="grid2">
+            <label className="fld"><span>Short mark <span className="val">on the tile</span></span>
+              <input value={theme.identity.short} maxLength={6} onChange={(e) => patch((t) => { t.identity.short = e.target.value; })} />
+            </label>
+            <label className="fld"><span>URL <span className="val">show ID line 2</span></span>
+              <input value={theme.identity.url} onChange={(e) => patch((t) => { t.identity.url = e.target.value; })} />
+            </label>
+          </div>
+          <label className="fld"><span>Tile mark</span>
+            <select value={theme.identity.markStyle} onChange={(e) => patch((t) => { t.identity.markStyle = e.target.value as MarkStyle; })}>
+              <option value="arches">Rainbow arches + short mark</option>
+              <option value="chip">Short mark only</option>
+              <option value="image" disabled={!theme.logoData}>Uploaded logo image</option>
+              <option value="none">No tile</option>
+            </select>
+          </label>
+          <div className="fld">
+            <span className="fldlabel">Logo image</span>
+            <div className="btnrow">
+              <button className="btn sm" onClick={() => logoRef.current?.click()}>
+                <IUpload /> {theme.logoData ? 'Replace…' : 'Upload PNG…'}
+              </button>
+              {theme.logoData && (
+                <button className="btn sm ghost" onClick={() => patch((t) => { delete t.logoData; if (t.identity.markStyle === 'image') t.identity.markStyle = 'chip'; })}>Remove</button>
+              )}
+            </div>
+            <input ref={logoRef} type="file" accept="image/*" style={{ display: 'none' }}
+              onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) uploadLogo(f); }} />
+          </div>
+          <label className="check">
+            <input type="checkbox" checked={theme.flags.markOnAll} onChange={(e) => patch((t) => { t.flags.markOnAll = e.target.checked; })} />
+            Show the station tile on speaker and article titles too
+          </label>
+        </div>
+      </details>
+
+      <details className="acc">
+        <summary>Motion &amp; extras <IChevron className="chev" /></summary>
+        <div className="body">
+          <label className="fld"><span>Animation</span>
+            <select value={theme.animation} onChange={(e) => patch((t) => { t.animation = e.target.value as Animation; })}>
+              <option value="build">Build (tile, arches, bars assemble)</option>
+              <option value="slide">Slide</option>
+              <option value="rise">Rise</option>
+              <option value="wipe">Wipe</option>
+              <option value="fade">Fade</option>
+            </select>
+          </label>
+          <label className="check"><input type="checkbox" checked={theme.flags.stripe} onChange={(e) => patch((t) => { t.flags.stripe = e.target.checked; })} /> Brand stripe under the name bar</label>
+          <label className="check"><input type="checkbox" checked={theme.flags.subBar} onChange={(e) => patch((t) => { t.flags.subBar = e.target.checked; })} /> Sub bar (role / tag line)</label>
+          <label className="check"><input type="checkbox" checked={theme.flags.petitionerTab !== false} onChange={(e) => patch((t) => { t.flags.petitionerTab = e.target.checked; })} /> Petitioner tab on articles</label>
+          <label className="check" style={{ marginLeft: 25 }}><input type="checkbox" checked={theme.flags.petitionerKicker !== false} onChange={(e) => patch((t) => { t.flags.petitionerKicker = e.target.checked; })} /> with the word PETITIONER</label>
+          <label className="check"><input type="checkbox" checked={theme.flags.shadow} onChange={(e) => patch((t) => { t.flags.shadow = e.target.checked; })} /> Drop shadow</label>
+          <label className="check"><input type="checkbox" checked={theme.flags.uppercaseTag} onChange={(e) => patch((t) => { t.flags.uppercaseTag = e.target.checked; })} /> Uppercase article tag line</label>
+          <label className="check"><input type="checkbox" checked={theme.flags.uppercaseBadge} onChange={(e) => patch((t) => { t.flags.uppercaseBadge = e.target.checked; })} /> Uppercase badge</label>
+          <p className="hint">The date on every title is set in the Titles step, since it belongs to the project rather than the look.</p>
+        </div>
+      </details>
+    </>
+  );
+}
+
+/**
+ * Under the preview: the gallery of looks as a filmstrip. Clicking one
+ * applies it; the adjustments are in the left column.
+ */
+export function LookStage(props: {
+  themeId: string;
+  customThemes: ThemeDef[];
+  fontsReady: boolean;
+  previewItem: TitleItem;
+  onSelect: (id: string) => void;
+  onDeleteCustom: (id: string) => void;
+  onNext: () => void;
+}) {
+  const { themeId, customThemes, fontsReady, previewItem, onSelect, onDeleteCustom, onNext } = props;
+  const all = [...(BUILT_IN_THEMES as ThemeDef[]), ...customThemes];
+
   return (
     <div className="card">
       <div className="editor-head">
         <div>
-          <span className="kicker">◆ Step 2 of 3 · {theme.name}</span>
-          <h2 style={{ fontSize: 17 }}>{isCustom ? 'Make it yours' : 'Built-in look'}</h2>
+          <span className="kicker">◆ Step 2 of 3 · {all.length} looks</span>
+          <h2 style={{ fontSize: 17 }}>Choose a look</h2>
         </div>
         <div className="spacer" />
-        {!isCustom && <button className="btn primary sm" onClick={onDuplicate}><ICopy /> Duplicate &amp; customize</button>}
         <button className="btn lime sm" onClick={onNext}>Next: export <IArrowRight /></button>
       </div>
-
-      {!isCustom && (
-        <div className="note-box lime" style={{ marginBottom: 14 }}>
-          This is a built-in look. Change anything below — station name, type sizes, fonts, colors, logo, motion — and it becomes <b>your own copy</b>, saved with the project. The built-in stays as it is.
-        </div>
-      )}
-
-      <div>
-        <details className="acc" open>
-          <summary>Station identity <IChevron className="chev" /></summary>
-          <div className="body">
-            <div className="grid2">
-              <label className="fld"><span>Look name</span>
-                <input value={theme.name} onChange={(e) => patch((t) => { t.name = e.target.value; })} />
-              </label>
-              <label className="fld"><span>Station / organization</span>
-                <input value={theme.identity.org} onChange={(e) => patch((t) => { t.identity.org = e.target.value; })} />
-              </label>
-              <label className="fld"><span>Short mark <span className="val">on the tile</span></span>
-                <input value={theme.identity.short} maxLength={6} onChange={(e) => patch((t) => { t.identity.short = e.target.value; })} />
-              </label>
-              <label className="fld"><span>URL <span className="val">show ID second line</span></span>
-                <input value={theme.identity.url} onChange={(e) => patch((t) => { t.identity.url = e.target.value; })} />
-              </label>
-              <label className="fld"><span>Tile mark</span>
-                <select value={theme.identity.markStyle} onChange={(e) => patch((t) => { t.identity.markStyle = e.target.value as MarkStyle; })}>
-                  <option value="arches">Rainbow arches + short mark</option>
-                  <option value="chip">Short mark only</option>
-                  <option value="image" disabled={!theme.logoData}>Uploaded logo image</option>
-                  <option value="none">No tile</option>
-                </select>
-              </label>
-              <label className="fld"><span>Logo image</span>
-                <div className="btnrow">
-                  <button className="btn sm" onClick={() => logoRef.current?.click()}>
-                    <IUpload /> {theme.logoData ? 'Replace…' : 'Upload PNG…'}
-                  </button>
-                  {theme.logoData && (
-                    <button className="btn sm ghost" onClick={() => patch((t) => { delete t.logoData; if (t.identity.markStyle === 'image') t.identity.markStyle = 'chip'; })}>Remove</button>
+      <p className="hint" style={{ marginBottom: 12 }}>
+        Click a look to apply it to every title. Fine-tune placement, type, colors and the station mark in the left column — the preview updates as you drag.
+      </p>
+      <div className="lookstrip">
+        {all.map((t) => {
+          const custom = customThemes.some((c) => c.id === t.id);
+          return (
+            <div
+              key={t.id}
+              className={`theme-card ${t.id === themeId ? 'sel' : ''}`}
+              onClick={() => onSelect(t.id)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(t.id); } }}
+            >
+              <ThemeThumb theme={t} item={previewItem} fontsReady={fontsReady} />
+              <div className="body">
+                <div className="name">
+                  {t.name}
+                  {custom && <span className="badge amber" style={{ fontSize: 9 }}>Custom</span>}
+                  <span className="spacer" />
+                  {custom && (
+                    <button className="btn xs ghost danger" onClick={(e) => { e.stopPropagation(); onDeleteCustom(t.id); }} title="Delete this custom look">
+                      <ITrash style={{ width: 13, height: 13 }} />
+                    </button>
                   )}
                 </div>
-                <input ref={logoRef} type="file" accept="image/*" style={{ display: 'none' }}
-                  onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) uploadLogo(f); }} />
-              </label>
-            </div>
-            <label className="check">
-              <input type="checkbox" checked={theme.flags.markOnAll} onChange={(e) => patch((t) => { t.flags.markOnAll = e.target.checked; })} />
-              Show the station tile on speaker and article titles too
-            </label>
-          </div>
-        </details>
-
-        <details className="acc">
-          <summary>Type <IChevron className="chev" /></summary>
-          <div className="body">
-            <div className="grid3">
-              <label className="fld"><span>Names &amp; show titles</span>
-                <select value={F.display} onChange={(e) => patch((t) => { t.fonts.display = e.target.value; })}>
-                  {fam.map((f) => <option key={f} value={f}>{f}</option>)}
-                </select>
-              </label>
-              <label className="fld"><span>Weight</span>
-                <select value={F.displayWeight} onChange={(e) => patch((t) => { t.fonts.displayWeight = +e.target.value; })}>
-                  {WEIGHTS.map((w) => <option key={w} value={w}>{w}</option>)}
-                </select>
-              </label>
-              <div />
-              <label className="fld"><span>Article titles &amp; sub bar</span>
-                <select value={F.text} onChange={(e) => patch((t) => { t.fonts.text = e.target.value; })}>
-                  {fam.map((f) => <option key={f} value={f}>{f}</option>)}
-                </select>
-              </label>
-              <label className="fld"><span>Weight</span>
-                <select value={F.textWeight} onChange={(e) => patch((t) => { t.fonts.textWeight = +e.target.value; })}>
-                  {WEIGHTS.map((w) => <option key={w} value={w}>{w}</option>)}
-                </select>
-              </label>
-              <div />
-              <label className="fld"><span>Tile mark &amp; badge</span>
-                <select value={F.label} onChange={(e) => patch((t) => { t.fonts.label = e.target.value; })}>
-                  {fam.map((f) => <option key={f} value={f}>{f}</option>)}
-                </select>
-              </label>
-              <label className="fld"><span>Weight</span>
-                <select value={F.labelWeight} onChange={(e) => patch((t) => { t.fonts.labelWeight = +e.target.value; })}>
-                  {WEIGHTS.map((w) => <option key={w} value={w}>{w}</option>)}
-                </select>
-              </label>
-            </div>
-            <div className="grid3" style={{ marginTop: 12 }}>
-              {size('Name / show title size', F.displaySize, (v) => patch((t) => { t.fonts.displaySize = v; }))}
-              {size('Article title size', F.textSize, (v) => patch((t) => { t.fonts.textSize = v; }))}
-              {size('Sub bar size', F.subSize, (v) => patch((t) => { t.fonts.subSize = v; }))}
-              {size('Tile mark size', F.labelSize, (v) => patch((t) => { t.fonts.labelSize = v; }))}
-              {size('Badge size', F.badgeSize, (v) => patch((t) => { t.fonts.badgeSize = v; }))}
-              <div className="fld">
-                <span className="fldlabel">&nbsp;</span>
-                <button className="btn xs ghost" onClick={() => patch((t) => { t.fonts.displaySize = 1; t.fonts.textSize = 1; t.fonts.subSize = 1; t.fonts.labelSize = 1; t.fonts.badgeSize = 1; })}>Reset sizes</button>
-              </div>
-            </div>
-            <p className="hint" style={{ margin: '4px 0 10px' }}>Sizes are multipliers on the look's defaults. The per-title <b>Large</b> setting and text-size nudge in the Titles step stack on top of them.</p>
-            <div className="btnrow">
-              <button className="btn sm" onClick={() => fontRef.current?.click()}><IUpload /> Add a font file (.ttf / .otf)…</button>
-              <input ref={fontRef} type="file" accept=".ttf,.otf,.woff,.woff2" style={{ display: 'none' }}
-                onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) { setPendingFont(f); setFontFamily(f.name.replace(/\.[^.]+$/, '').replace(/[-_](Bold|Regular|Medium|Black|Light|SemiBold|ExtraBold)$/i, '')); } }} />
-              <span className="hint">Fonts you add live in this browser/app only. The CLI batch renderer uses the files in <code>public/fonts</code>.</span>
-            </div>
-            {pendingFont && (
-              <div className="note-box">
-                <div className="grid3" style={{ alignItems: 'end' }}>
-                  <label className="fld"><span>Family name</span>
-                    <input value={fontFamily} onChange={(e) => setFontFamily(e.target.value)} />
-                  </label>
-                  <label className="fld"><span>Weight of this file</span>
-                    <select value={fontWeight} onChange={(e) => setFontWeight(+e.target.value)}>
-                      {WEIGHTS.map((w) => <option key={w} value={w}>{w}</option>)}
-                    </select>
-                  </label>
-                  <div className="btnrow">
-                    <button className="btn sm primary" onClick={confirmFont} disabled={!fontFamily.trim()}>Add {pendingFont.name}</button>
-                    <button className="btn sm ghost" onClick={() => setPendingFont(null)}>Cancel</button>
-                  </div>
+                <div className="desc">{t.description ?? 'Custom look'}</div>
+                <div className="chips">
+                  {[t.colors.tile, t.colors.bar, t.colors.subBar, t.colors.badgeBg, ...t.colors.stripes.slice(0, 3)].map((c, i) => (
+                    <i key={i} style={{ background: c }} />
+                  ))}
                 </div>
               </div>
-            )}
-          </div>
-        </details>
-
-        <details className="acc">
-          <summary>Colors <IChevron className="chev" /></summary>
-          <div className="body">
-            <div className="swatchgrid">
-              {color('Tile', () => C.tile, (v) => patch((t) => { t.colors.tile = v; }))}
-              {color('Name bar', () => C.bar, (v) => patch((t) => { t.colors.bar = v; }))}
-              {color('Name text', () => C.text, (v) => patch((t) => { t.colors.text = v; }))}
-              {color('Sub bar', () => C.subBar, (v) => patch((t) => { t.colors.subBar = v; }))}
-              {color('Sub bar text', () => C.subText, (v) => patch((t) => { t.colors.subText = v; }))}
-              {color('Tile mark text', () => C.label, (v) => patch((t) => { t.colors.label = v; }))}
-              {color('Badge', () => C.badgeBg, (v) => patch((t) => { t.colors.badgeBg = v; }))}
-              {color('Badge text', () => C.badgeText, (v) => patch((t) => { t.colors.badgeText = v; }))}
             </div>
-            <div className="grid2">
-              <label className="fld"><span>Stripe colors <span className="val">comma-separated hex</span></span>
-                <input value={C.stripes.join(', ')} onChange={(e) => patch((t) => { t.colors.stripes = e.target.value.split(',').map((s) => s.trim()).filter(Boolean); })} />
-              </label>
-              <label className="fld"><span>Arch colors <span className="val">outer → inner</span></span>
-                <input value={C.archColors.join(', ')} onChange={(e) => patch((t) => { t.colors.archColors = e.target.value.split(',').map((s) => s.trim()).filter(Boolean); })} />
-              </label>
-            </div>
-          </div>
-        </details>
-
-        <details className="acc">
-          <summary>Layout &amp; motion <IChevron className="chev" /></summary>
-          <div className="body">
-            <div className="grid3">
-              <label className="fld"><span>Animation</span>
-                <select value={theme.animation} onChange={(e) => patch((t) => { t.animation = e.target.value as Animation; })}>
-                  <option value="build">Build (tile, arches, bars assemble)</option>
-                  <option value="slide">Slide</option>
-                  <option value="rise">Rise</option>
-                  <option value="wipe">Wipe</option>
-                  <option value="fade">Fade</option>
-                </select>
-              </label>
-              <label className="fld"><span>Position</span>
-                <select value={theme.layout.position} onChange={(e) => patch((t) => { t.layout.position = e.target.value as 'left' | 'center'; })}>
-                  <option value="left">Lower left</option>
-                  <option value="center">Lower center</option>
-                </select>
-              </label>
-              <label className="fld"><span>Corner radius <span className="val">{theme.layout.cornerRadius}</span></span>
-                <input type="range" min={0} max={30} value={theme.layout.cornerRadius} onChange={(e) => patch((t) => { t.layout.cornerRadius = +e.target.value; })} />
-              </label>
-              <label className="fld"><span>Scale <span className="val">{theme.layout.scale.toFixed(2)}×</span></span>
-                <input type="range" min={0.7} max={1.4} step={0.05} value={theme.layout.scale} onChange={(e) => patch((t) => { t.layout.scale = +e.target.value; })} />
-              </label>
-              <label className="fld"><span>Side margin <span className="val">{theme.layout.marginX}px</span></span>
-                <input type="range" min={40} max={300} step={4} value={theme.layout.marginX} onChange={(e) => patch((t) => { t.layout.marginX = +e.target.value; })} />
-              </label>
-              <label className="fld"><span>Max width <span className="val">{Math.round((theme.layout.maxWidth ?? 0.75) * 100)}%</span></span>
-                <input type="range" min={0.4} max={0.94} step={0.01} value={theme.layout.maxWidth ?? 0.75} onChange={(e) => patch((t) => { t.layout.maxWidth = +e.target.value; })} />
-              </label>
-              <label className="fld"><span>Bottom margin <span className="val">{theme.layout.marginY}px</span></span>
-                <input type="range" min={40} max={300} step={4} value={theme.layout.marginY} onChange={(e) => patch((t) => { t.layout.marginY = +e.target.value; })} />
-              </label>
-            </div>
-            <div className="grid2">
-              <label className="check"><input type="checkbox" checked={theme.flags.stripe} onChange={(e) => patch((t) => { t.flags.stripe = e.target.checked; })} /> Brand stripe under the name bar</label>
-              <label className="check"><input type="checkbox" checked={theme.flags.subBar} onChange={(e) => patch((t) => { t.flags.subBar = e.target.checked; })} /> Sub bar (role / tag line)</label>
-              <label className="check"><input type="checkbox" checked={theme.flags.shadow} onChange={(e) => patch((t) => { t.flags.shadow = e.target.checked; })} /> Drop shadow</label>
-              <label className="check"><input type="checkbox" checked={theme.flags.uppercaseTag} onChange={(e) => patch((t) => { t.flags.uppercaseTag = e.target.checked; })} /> Uppercase article tag line</label>
-              <label className="check"><input type="checkbox" checked={theme.flags.uppercaseBadge} onChange={(e) => patch((t) => { t.flags.uppercaseBadge = e.target.checked; })} /> Uppercase badge</label>
-            </div>
-          </div>
-        </details>
+          );
+        })}
       </div>
     </div>
   );

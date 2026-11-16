@@ -6,7 +6,7 @@ export interface ImportDefaults {
   secondary?: string;
 }
 
-function toTitleItems(raw: { type: string; badge: string; primary: string; secondary: string }[]): TitleItem[] {
+function toTitleItems(raw: { type: string; badge: string; primary: string; secondary: string; petitioner?: string }[]): TitleItem[] {
   return raw.map((r) => ({ id: newId(), ...r }) as TitleItem);
 }
 

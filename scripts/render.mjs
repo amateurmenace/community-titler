@@ -18,6 +18,8 @@
 //   --in / --hold / --outdur <seconds>   timing (defaults 1.1 / 6 / 0.9)
 //   --logo <file>        PNG logo for themes using an image mark
 //   --only <n[,n...]>    render only these 1-based rows
+//   --date <text>        put a date on every title ("" for a blank plate to fill in OBS)
+//   --date-place <p>     title (tab on the name bar) | corner (fixed, top-left); default title
 //
 // prores/webm need ffmpeg on your PATH (brew install ffmpeg / winget install ffmpeg).
 
@@ -41,7 +43,7 @@ const flag = (name, def) => {
 const has = (name) => argv.includes(`--${name}`);
 
 if (has('help') || argv.length === 0) {
-  console.log(readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1, 27).map((l) => l.replace(/^\/\/ ?/, '')).join('\n'));
+  console.log(readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1, 29).map((l) => l.replace(/^\/\/ ?/, '')).join('\n'));
   process.exit(0);
 }
 
@@ -54,6 +56,8 @@ const settings = {
   inDur: parseFloat(flag('in', '1.1')),
   holdDur: parseFloat(flag('hold', '6')),
   outDur: parseFloat(flag('outdur', '0.9')),
+  datePlace: has('date') ? flag('date-place', 'title') : 'off',
+  dateText: flag('date', ''),
 };
 
 // ---------------------------------------------------------------- fonts ---

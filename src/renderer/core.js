@@ -99,41 +99,45 @@ function measureTracked(ctx, text, tracking) {
  */
 function fitLines(ctx, text, opts) {
   const { family, weight, maxSize, minSize, maxWidth, maxLines } = opts;
-  const words = String(text ?? '').trim().split(/\s+/).filter(Boolean);
-  if (!words.length) return { size: maxSize, lines: [] };
+  // A newline in the text is a manual line break: each paragraph wraps on
+  // its own and the forced breaks count toward maxLines.
+  const paras = String(text ?? '').replace(/\r/g, '').split('\n')
+    .map((p) => p.trim().split(/\s+/).filter(Boolean))
+    .filter((p) => p.length);
+  const totalWords = paras.reduce((n, p) => n + p.length, 0);
+  if (!totalWords) return { size: maxSize, lines: [] };
 
-  for (let size = maxSize; size >= minSize; size -= 1) {
+  // Greedy wrap at one size. `strict` bails as soon as the line budget is
+  // blown; otherwise it clips to maxLines and reports how many words fit.
+  const wrap = (size, strict) => {
     setFont(ctx, weight, size, family);
     const lines = [];
-    let line = '';
-    let ok = true;
-    for (const word of words) {
-      const probe = line ? line + ' ' + word : word;
-      if (measure(ctx, probe) <= maxWidth || !line) {
-        line = probe;
-      } else {
+    let used = 0;
+    for (const words of paras) {
+      let line = '';
+      for (const word of words) {
+        const probe = line ? line + ' ' + word : word;
+        if (measure(ctx, probe) <= maxWidth || !line) { line = probe; used++; continue; }
         lines.push(line);
-        line = word;
+        if (lines.length >= maxLines) { if (strict) return null; return { lines, used }; }
+        line = word; used++;
       }
-      if (lines.length > maxLines) { ok = false; break; }
+      lines.push(line);
+      if (lines.length > maxLines) { if (strict) return null; lines.pop(); used -= words.length; return { lines, used }; }
     }
-    if (line) lines.push(line);
-    if (!ok || lines.length > maxLines) continue;
-    if (lines.some((l) => measure(ctx, l) > maxWidth) && size > minSize) continue;
-    return { size, lines: lines.map((l) => ({ text: l, width: measure(ctx, l) })), truncated: false };
+    return { lines, used };
+  };
+
+  for (let size = maxSize; size >= minSize; size -= 1) {
+    const r = wrap(size, true);
+    if (!r) continue;
+    if (r.lines.some((l) => measure(ctx, l) > maxWidth) && size > minSize) continue;
+    return { size, lines: r.lines.map((l) => ({ text: l, width: measure(ctx, l) })), truncated: false };
   }
   // Last resort: hard-clip at min size (and say so, so the layout can go large)
-  setFont(ctx, weight, minSize, family);
-  const lines = [];
-  let line = '';
-  for (const word of words) {
-    const probe = line ? line + ' ' + word : word;
-    if (measure(ctx, probe) <= maxWidth || !line) line = probe;
-    else { lines.push(line); line = word; if (lines.length >= maxLines) break; }
-  }
-  if (line && lines.length < maxLines) lines.push(line);
-  const used = lines.reduce((n, l) => n + l.split(' ').length, 0);
-  return { size: minSize, lines: lines.map((l) => ({ text: l, width: measure(ctx, l) })), truncated: used < words.length };
+  const r = wrap(minSize, false);
+  const lines = r.lines.slice(0, maxLines);
+  return { size: minSize, lines: lines.map((l) => ({ text: l, width: measure(ctx, l) })), truncated: r.used < totalWords };
 }
 
 /** Split "Article 7" / "ART 12A" / "7" into {word, num}; anything else → {single}. */
@@ -219,7 +223,7 @@ function computeLayout(ctx, item, theme, opts) {
   const showTile = markStyle !== 'none' && (type === 'show' || FL.markOnAll !== false);
 
   /** @type {any} */
-  const plan = { u, W, H, r, type, large: false, tile: null, badge: null, bar: null, stripe: null, sub: null };
+  const plan = { u, W, H, r, type, large: false, tile: null, badge: null, bar: null, stripe: null, sub: null, tab: null, date: null };
 
   // --- badge (article number) -------------------------------------------
   let badge = null;
@@ -258,29 +262,32 @@ function computeLayout(ctx, item, theme, opts) {
   // otherwise shrink into illegibility.
   // 'auto' tries standard first and goes large when the text came out small.
   const frac = Math.max(0.3, Math.min(0.94, L.maxWidth ?? 0.75));
+  // Manual line breaks are never "cramped": a title typed on two lines gets
+  // at least two lines at standard size instead of being pushed to Large.
+  const forcedLines = Math.min(4, String(item.primary ?? '').split('\n').filter((l) => l.trim()).length || 1);
   const measureBar = (large) => {
     const availW = Math.max(240 * u, W * frac - barsX);
     const BAR_H = (large ? 108 : 96) * u;
     let family = F.display, weight = F.displayWeight, fit, lineK, floor;
     if (type === 'speaker') {
       fit = fitLines(ctx, item.primary, {
-        family, weight, maxSize: (large ? 72 : 60) * u * kDisplay, minSize: (large ? 44 : 38) * u * kDisplay,
-        maxWidth: availW - PAD_X * 2, maxLines: large ? 2 : 1,
+        family, weight, maxSize: (large ? 76 : 64) * u * kDisplay, minSize: (large ? 46 : 40) * u * kDisplay,
+        maxWidth: availW - PAD_X * 2, maxLines: Math.max(large ? 2 : 1, forcedLines),
       });
-      lineK = 1.1; floor = 50 * u * kDisplay;
+      lineK = 1.1; floor = 52 * u * kDisplay;
     } else if (type === 'show') {
       fit = fitLines(ctx, item.primary, {
-        family, weight, maxSize: (large ? 66 : 56) * u * kDisplay, minSize: (large ? 40 : 34) * u * kDisplay,
-        maxWidth: availW - PAD_X * 2, maxLines: 2,
+        family, weight, maxSize: (large ? 70 : 60) * u * kDisplay, minSize: (large ? 42 : 36) * u * kDisplay,
+        maxWidth: availW - PAD_X * 2, maxLines: Math.max(2, forcedLines),
       });
-      lineK = 1.12; floor = 48 * u * kDisplay;
+      lineK = 1.12; floor = 50 * u * kDisplay;
     } else {
       family = F.text; weight = F.textWeight ?? 600;
       fit = fitLines(ctx, item.primary, {
-        family, weight, maxSize: (large ? 40 : 36) * u * kText, minSize: (large ? 28 : 24) * u * kText,
-        maxWidth: availW - PAD_X * 2, maxLines: large ? 4 : 3,
+        family, weight, maxSize: (large ? 46 : 40) * u * kText, minSize: (large ? 30 : 26) * u * kText,
+        maxWidth: availW - PAD_X * 2, maxLines: Math.max(large ? 4 : 3, forcedLines),
       });
-      lineK = 1.2; floor = 30 * u * kText; // three lines down to 30px still read fine; below that go large
+      lineK = 1.2; floor = 32 * u * kText; // three lines down to 32px still read fine; below that go large
     }
     const lines = fit.lines.length ? fit.lines : [{ text: '', width: 0 }];
     const lineH = fit.size * lineK;
@@ -330,6 +337,57 @@ function computeLayout(ctx, item, theme, opts) {
     sub = { text, size: subSize, tracking, w: w + SUB_PAD_X * 2, h: SUB_H };
   }
 
+  // --- petitioner tab ----------------------------------------------------
+  // Articles can carry who filed them. It sits as a tab on top of the name
+  // bar, flush with the bar's right edge, in the sub bar colours: a small
+  // kicker ("PETITIONER") then the names.
+  let tab = null;
+  const petitioner = type === 'article' && FL.petitionerTab !== false ? String(item.petitioner ?? '').replace(/\s+/g, ' ').trim() : '';
+  if (petitioner) {
+    const TAB_PAD = 24 * u;
+    const kickText = FL.petitionerKicker !== false ? 'PETITIONER' : '';
+    const kickTracking = 1.6 * u;
+    const kickGap = 16 * u;
+    const maxTabW = availW;
+    const measureTab = (size) => {
+      const kickSize = size * 0.62;
+      setFont(ctx, F.labelWeight ?? 700, kickSize, F.label ?? F.text);
+      const kickW = kickText ? measureTracked(ctx, kickText, kickTracking) : 0;
+      setFont(ctx, 700, size, F.text);
+      const nameW = measure(ctx, petitioner);
+      return { size, kickSize, kickW, nameW, w: TAB_PAD * 2 + kickW + (kickText ? kickGap : 0) + nameW };
+    };
+    let m = measureTab(26 * u * kSub);
+    if (m.w > maxTabW) m = measureTab(Math.max(16 * u, m.size * (maxTabW / m.w)));
+    let text = petitioner;
+    if (m.w > maxTabW) { // still too wide at the floor: shorten the names
+      const budget = maxTabW - (m.w - m.nameW);
+      setFont(ctx, 700, m.size, F.text);
+      while (text.length > 4 && measure(ctx, text + '\u2026') > budget) text = text.slice(0, -1).trimEnd();
+      text += '\u2026';
+      m.nameW = measure(ctx, text);
+      m.w = maxTabW;
+    }
+    tab = { text, kick: kickText, kickTracking, kickGap, padX: TAB_PAD, size: m.size, kickSize: m.kickSize, kickW: m.kickW, nameW: m.nameW, w: m.w, h: Math.round(m.size * 1.9) };
+  }
+
+  // --- date --------------------------------------------------------------
+  // A project-wide date (opts.dateText / opts.datePlace): a tab on the
+  // top-left of the name bar, or a chip in the top-left corner of the frame
+  // whose position never changes, so a text source in OBS can sit on it.
+  // Blank text draws an empty plate of a fixed width for exactly that.
+  let date = null;
+  const datePlace = opts.datePlace === 'title' || opts.datePlace === 'corner' ? opts.datePlace : 'off';
+  if (datePlace !== 'off') {
+    const text = String(opts.dateText ?? '').replace(/\s+/g, ' ').trim();
+    const size = 26 * u * kSub;
+    const padX = 24 * u;
+    setFont(ctx, 700, size, F.text);
+    const natural = text ? measure(ctx, text) + padX * 2 : 320 * u;
+    const w = Math.min(natural, datePlace === 'title' ? availW : W - 2 * mx);
+    date = { place: datePlace, text, size, padX, w, h: Math.round(size * 1.9) };
+  }
+
   // --- vertical stack ----------------------------------------------------
   const stripeOn = FL.stripe !== false && (C.stripes?.length ?? 0) > 0;
   const stripeH = stripeOn ? STRIPE_H : 0;
@@ -341,7 +399,7 @@ function computeLayout(ctx, item, theme, opts) {
   const tileY = bottom - groupH + (groupH - tileH) / 2;
 
   // --- horizontal centering (optional) ----------------------------------
-  const rightEdge = barsX + Math.max(barW, sub ? sub.w : 0);
+  const rightEdge = barsX + Math.max(barW, sub ? sub.w : 0, tab ? tab.w : 0);
   let shift = 0;
   if (L.position === 'center') shift = (W - (rightEdge - tileX)) / 2 - tileX;
 
@@ -383,12 +441,23 @@ function computeLayout(ctx, item, theme, opts) {
   if (badge) {
     plan.badge = { ...badge, x: badgeX + shift, y: tileY, h: tileH };
   }
+  const dateOnBar = date && date.place === 'title' ? date : null;
+  const tabsW = (tab ? tab.w : 0) + (dateOnBar ? dateOnBar.w : 0) + (tab && dateOnBar ? 12 * u : 0);
+  const barWFinal = Math.max(barW, tabsW);
   plan.bar = {
-    x: barsX + shift, y: stackY, w: barW, h: barH,
+    x: barsX + shift, y: stackY, w: barWFinal, h: barH,
     padX: PAD_X, padY, lines, size, lineH, family, weight,
   };
+  if (tab) {
+    plan.tab = { ...tab, x: barsX + shift + barWFinal - tab.w, y: stackY - tab.h };
+  }
+  if (date) {
+    plan.date = date.place === 'title'
+      ? { ...date, x: barsX + shift, y: stackY - date.h }
+      : { ...date, x: mx, y: my };
+  }
   if (stripeOn) {
-    plan.stripe = { x: barsX + shift, y: stackY + barH, w: barW, h: stripeH, colors: C.stripes };
+    plan.stripe = { x: barsX + shift, y: stackY + barH, w: barWFinal, h: stripeH, colors: C.stripes };
   }
   if (sub) {
     plan.sub = { ...sub, x: barsX + shift, y: stackY + barH + stripeH, padX: SUB_PAD_X };
@@ -431,14 +500,20 @@ function buildStages(inP, outP) {
     ],
     sub: S(0.64, 0.9, easeOutQuint, 0.08, 0.36, easeInCubic),
     subText: S(0.8, 1.0, easeOutCubic, 0.0, 0.18, easeInQuad),
+    tab: S(0.7, 0.96, easeOutQuint, 0.1, 0.4, easeInCubic),
   };
 }
 
 const AT_REST = {
-  tile: 1, arcs: [1, 1, 1], label: 1, badge: 1, bar: 1, name: 1, stripe: [1, 1, 1, 1], sub: 1, subText: 1,
+  tile: 1, arcs: [1, 1, 1], label: 1, badge: 1, bar: 1, name: 1, stripe: [1, 1, 1, 1], sub: 1, subText: 1, tab: 1,
 };
 
 // ------------------------------------------------------------------- paint ---
+
+/** The measured layout for one title (what drawFrame paints), for tools and tests. */
+export function measureLayout(ctx, item, theme, opts) {
+  return computeLayout(ctx, item, theme, opts);
+}
 
 /**
  * Draw one frame.
@@ -446,7 +521,8 @@ const AT_REST = {
  * @param {number} t seconds, 0 .. totalDuration(opts)
  * @param {TitleItem} item
  * @param {object} theme
- * @param {object} opts {width,height,inDur,holdDur,outDur,assets?}
+ * @param {object} opts {width,height,inDur,holdDur,outDur,assets?,dateText?,datePlace?}
+ * @returns the measured layout (see measureLayout)
  */
 export function drawFrame(ctx, t, item, theme, opts) {
   const { width: W, height: H } = opts;
@@ -464,7 +540,7 @@ export function drawFrame(ctx, t, item, theme, opts) {
   const inP = opts.inDur > 0 ? clamp01(t / opts.inDur) : 1;
   const outStart = opts.inDur + opts.holdDur;
   const outP = opts.outDur > 0 ? clamp01((t - outStart) / opts.outDur) : (t >= outStart ? 1 : 0);
-  if (outP >= 1) return;
+  if (outP >= 1) return plan;
 
   const build = anim === 'build';
   const st = build ? buildStages(inP, outP) : AT_REST;
@@ -479,7 +555,7 @@ export function drawFrame(ctx, t, item, theme, opts) {
     if (anim === 'slide') gx = -80 * u * (1 - pi) + 60 * u * po;
     if (anim === 'rise') gy = 50 * u * (1 - pi) + 40 * u * po;
     if (anim === 'wipe') { galpha = 1 - po; clipW = inP < 1 ? easeOutQuint(inP) : null; }
-    if (galpha <= 0) return;
+    if (galpha <= 0) return plan;
   }
 
   const shadowOn = theme.flags.shadow !== false;
@@ -591,17 +667,88 @@ export function drawFrame(ctx, t, item, theme, opts) {
     ctx.restore();
   }
 
-  // --- name bar ---------------------------------------------------------------
+  // --- petitioner tab (behind the bar; rises out of it) ------------------------
   const bar = plan.bar;
+  if (plan.tab && st.tab > 0 && st.bar > 0) {
+    const Tb = plan.tab;
+    const y = bar.y - Tb.h * st.tab;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(Tb.x - 40 * u, y - 40 * u, Tb.w + 80 * u, bar.y - y + 40 * u + 1); // nothing below the bar's top edge
+    ctx.clip();
+    setShadow(0.22);
+    rrectCorners(ctx, Tb.x, y, Tb.w, Tb.h + r, { tl: r, tr: r, br: 0, bl: 0 });
+    ctx.fillStyle = C.subBar;
+    ctx.fill();
+    clearShadow();
+    ctx.globalAlpha *= Math.min(1, st.tab * 1.4);
+    const ty = y + Tb.h / 2 + Tb.size * 0.36;
+    let tx = Tb.x + Tb.padX;
+    if (Tb.kick) {
+      ctx.save();
+      ctx.globalAlpha *= 0.72;
+      setFont(ctx, labelWeight, Tb.kickSize, labelFont);
+      ctx.fillStyle = C.subText;
+      drawTracked(ctx, Tb.kick, tx, ty - Tb.size * 0.02, Tb.kickTracking);
+      ctx.restore();
+      tx += Tb.kickW + Tb.kickGap;
+    }
+    setFont(ctx, 700, Tb.size, F.text);
+    ctx.fillStyle = C.subText;
+    ctx.fillText(Tb.text, tx, ty);
+    ctx.restore();
+  }
+
+  // --- date (tab on the bar's top-left, or a fixed corner chip) ----------------
+  if (plan.date && st.tab > 0 && st.bar > 0) {
+    const D = plan.date;
+    ctx.save();
+    if (D.place === 'title') {
+      const y = bar.y - D.h * st.tab;
+      ctx.beginPath();
+      ctx.rect(D.x - 40 * u, y - 40 * u, D.w + 80 * u, bar.y - y + 40 * u + 1);
+      ctx.clip();
+      setShadow(0.22);
+      rrectCorners(ctx, D.x, y, D.w, D.h + r, { tl: r, tr: r, br: 0, bl: 0 });
+      ctx.fillStyle = C.subBar;
+      ctx.fill();
+      clearShadow();
+      if (D.text) {
+        ctx.globalAlpha *= Math.min(1, st.tab * 1.4);
+        setFont(ctx, 700, D.size, F.text);
+        ctx.fillStyle = C.subText;
+        ctx.fillText(D.text, D.x + D.padX, y + D.h / 2 + D.size * 0.36);
+      }
+    } else {
+      const drop = 14 * u * (1 - st.tab);
+      ctx.globalAlpha *= st.tab;
+      setShadow(0.26);
+      rrect(ctx, D.x, D.y - drop, D.w, D.h, Math.min(r, D.h / 2));
+      ctx.fillStyle = C.bar;
+      ctx.fill();
+      clearShadow();
+      if (D.text) {
+        setFont(ctx, 700, D.size, F.text);
+        ctx.fillStyle = C.text;
+        ctx.fillText(D.text, D.x + D.padX, D.y - drop + D.h / 2 + D.size * 0.36);
+      }
+    }
+    ctx.restore();
+  }
+
+  // --- name bar ---------------------------------------------------------------
   const barW = bar.w * st.bar;
   const subOn = plan.sub && st.sub > 0;
   const stripeOn = plan.stripe && st.stripe.some((v) => v > 0);
   if (st.bar > 0) {
     ctx.save();
     setShadow();
-    // bottom corners are square when a stripe or sub bar continues the stack
+    // bottom corners are square when a stripe or sub bar continues the stack;
+    // the top-right one is square under the petitioner tab
     const squareBottom = !!(plan.stripe || plan.sub);
-    rrectCorners(ctx, bar.x, bar.y, Math.max(1, barW), bar.h, { tl: r, tr: r, br: squareBottom ? 0 : r, bl: squareBottom ? 0 : r });
+    const tr = plan.tab ? 0 : r;
+    const tl = plan.date && plan.date.place === 'title' ? 0 : r;
+    rrectCorners(ctx, bar.x, bar.y, Math.max(1, barW), bar.h, { tl, tr, br: squareBottom ? 0 : r, bl: squareBottom ? 0 : r });
     ctx.fillStyle = C.bar;
     ctx.fill();
     clearShadow();
@@ -666,4 +813,5 @@ export function drawFrame(ctx, t, item, theme, opts) {
   }
 
   ctx.restore();
+  return plan;
 }

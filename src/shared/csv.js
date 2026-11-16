@@ -45,13 +45,32 @@ const HEADER_ALIASES = {
   badge: ['badge', 'number', 'article', 'article number', 'article #', '#', 'no', 'num'],
   primary: ['primary', 'title', 'name', 'text', 'main', 'line1', 'line 1', 'article title', 'speaker', 'show'],
   secondary: ['secondary', 'subtitle', 'role', 'position', 'affiliation', 'organization', 'org', 'line2', 'line 2', 'tag', 'event', 'description'],
+  petitioner: ['petitioner', 'petitioners', 'petitioned by', 'sponsor', 'sponsors', 'submitted by', 'filed by', 'proponent'],
 };
+
+/**
+ * Warrant listings put the petitioner in a trailing parenthetical:
+ * "Resolution regarding Vision Zero (Dempsey)". Split it off when it looks
+ * like names or a board rather than an acronym such as "(TPOD)".
+ * @returns {{title:string, petitioner:string}}
+ */
+export function splitPetitioner(title) {
+  const s = String(title ?? '').trim();
+  const m = s.match(/^(.*?)[\s.]*\(([^()]{3,})\)\.?$/);
+  if (!m) return { title: s, petitioner: '' };
+  const inner = m[2].trim();
+  const head = m[1].trim();
+  const looksLikeAcronym = /^[A-Z0-9&/-]{2,8}$/.test(inner);
+  if (!head || looksLikeAcronym) return { title: s, petitioner: '' };
+  const keepPeriod = /\.$/.test(s.slice(0, s.lastIndexOf('(')).trim());
+  return { title: keepPeriod && !/[.!?]$/.test(head) ? head + '.' : head, petitioner: inner };
+}
 
 /**
  * Map spreadsheet rows to title items.
  * Recognizes a header row by known column names; otherwise treats columns
  * positionally as [type, badge, primary, secondary] or [primary, secondary].
- * @returns {{type:string,badge:string,primary:string,secondary:string}[]}
+ * @returns {{type:string,badge:string,primary:string,secondary:string,petitioner?:string}[]}
  */
 export function rowsToItems(rows, defaults = {}) {
   if (!rows.length) return [];
@@ -72,12 +91,13 @@ export function rowsToItems(rows, defaults = {}) {
   const items = [];
   for (const r of dataRows) {
     const cell = (i) => (i === undefined ? '' : String(r[i] ?? '').trim());
-    let type, badge, primary, secondary;
+    let type, badge, primary, secondary, petitioner = '';
     if (hasHeader) {
       type = norm(cell(colFor.type)) || defType;
       badge = cell(colFor.badge);
       primary = cell(colFor.primary);
       secondary = cell(colFor.secondary) || defSecondary;
+      petitioner = cell(colFor.petitioner);
     } else if (r.length >= 3) {
       type = norm(String(r[0])) || defType;
       badge = String(r[1] ?? '').trim();
@@ -101,8 +121,15 @@ export function rowsToItems(rows, defaults = {}) {
       if (m) { badge = `Article ${m[1]}`; primary = m[2]; }
     }
     if (type === 'article' && badge && /^\d+[A-Za-z]?$/.test(badge)) badge = `Article ${badge}`;
+    // No petitioner column: take it from the title's trailing "(...)".
+    if (type === 'article' && !petitioner && colFor.petitioner === undefined) {
+      const sp = splitPetitioner(primary);
+      primary = sp.title; petitioner = sp.petitioner;
+    }
     if (!primary) continue;
-    items.push({ type, badge, primary, secondary });
+    const item = { type, badge, primary, secondary };
+    if (petitioner) item.petitioner = petitioner;
+    items.push(item);
   }
   return items;
 }

@@ -1,5 +1,6 @@
-import { DEFAULT_SETTINGS, type Project } from './types';
+import { DEFAULT_SETTINGS, type Project, type TitleItem } from './types';
 import { stm2026Items } from './data/stm2026';
+import { splitPetitioner } from './shared/csv.js';
 import { normalizeTheme } from './renderer/themes.js';
 import { desktop } from './desktop';
 
@@ -30,6 +31,19 @@ export function emptyProject(): Project {
   };
 }
 
+/**
+ * Articles saved before 2.3 carry the petitioner inside the title, in a
+ * trailing parenthesis. Move it to the petitioner field once; an article
+ * that has the field already (even blank) is left alone.
+ */
+function migrateItems(items: any[]): TitleItem[] {
+  return items.map((it) => {
+    if (!it || it.type !== 'article' || it.petitioner !== undefined) return it;
+    const sp = splitPetitioner(it.primary);
+    return sp.petitioner ? { ...it, primary: sp.title, petitioner: sp.petitioner } : { ...it, petitioner: '' };
+  });
+}
+
 /** Accepts a v1 or v2 project object; returns a v2 project or null if unusable. */
 export function migrateProject(raw: any): Project | null {
   if (!raw || typeof raw !== 'object' || !Array.isArray(raw.items)) return null;
@@ -38,6 +52,7 @@ export function migrateProject(raw: any): Project | null {
     return {
       ...emptyProject(),
       ...raw,
+      items: migrateItems(raw.items),
       customThemes,
       settings: { ...DEFAULT_SETTINGS, ...(raw.settings ?? {}) },
     };
@@ -50,7 +65,7 @@ export function migrateProject(raw: any): Project | null {
     return {
       version: 2,
       name: raw.name,
-      items: raw.items,
+      items: migrateItems(raw.items),
       themeId: raw.themeId ?? 'big',
       customThemes,
       settings: s,

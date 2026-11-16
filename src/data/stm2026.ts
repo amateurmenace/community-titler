@@ -3,6 +3,7 @@
 // ("Current Town Meeting Files"). Loaded as the first-run sample project;
 // also available as public/samples/brookline-stm-2026-warrant-articles.csv.
 import { newId, type TitleItem } from '../types';
+import { splitPetitioner } from '../shared/csv.js';
 
 export const STM_TAG = 'Brookline Special Town Meeting · November 2026';
 
@@ -41,7 +42,8 @@ export function stm2026Items(): TitleItem[] {
     },
   ];
   for (const [n, title] of ARTICLES) {
-    items.push({ id: newId(), type: 'article', badge: `Article ${n}`, primary: title, secondary: STM_TAG });
+    const { title: primary, petitioner } = splitPetitioner(title);
+    items.push({ id: newId(), type: 'article', badge: `Article ${n}`, primary, secondary: STM_TAG, petitioner });
   }
   return items;
 }

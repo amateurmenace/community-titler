@@ -11,6 +11,7 @@ export interface TitleItem {
   badge: string; // e.g. "Article 5" (article type)
   primary: string; // name / show title / article title
   secondary: string; // role / org line / event tag
+  petitioner?: string; // articles: who filed it - shown on a tab above the title
   size?: ItemSize; // default 'auto'
   textScale?: number; // per-title nudge of the main text size, 1 = the look's default
 }
@@ -79,6 +80,8 @@ export interface ThemeDef {
     uppercaseTag: boolean;
     markOnAll: boolean;
     subBar: boolean;
+    petitionerTab: boolean;
+    petitionerKicker: boolean;
   };
   animation: Animation;
   /** data-URL of an uploaded station logo (PNG with alpha recommended) */
@@ -86,6 +89,8 @@ export interface ThemeDef {
 }
 
 export type ExportFormat = 'prores' | 'webm' | 'png' | 'pngseq';
+
+export type DatePlace = 'off' | 'title' | 'corner';
 
 export interface ExportSettings {
   format: ExportFormat;
@@ -95,6 +100,10 @@ export interface ExportSettings {
   inDur: number;
   holdDur: number;
   outDur: number;
+  /** a date on every title: as a tab on the name bar, or a fixed chip in the top-left corner */
+  datePlace?: DatePlace;
+  /** the date text; blank draws an empty plate to be filled by an OBS text source */
+  dateText?: string;
 }
 
 export interface Project {
@@ -114,6 +123,8 @@ export const DEFAULT_SETTINGS: ExportSettings = {
   inDur: 1.1,
   holdDur: 6,
   outDur: 0.9,
+  datePlace: 'off',
+  dateText: '',
 };
 
 export function newId(): string {

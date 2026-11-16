@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import TopBar, { type Step } from './ui/TopBar';
 import Preview from './ui/Preview';
 import { TitlesRail, TitleEditor } from './ui/TitlesStep';
-import { LookRail, LookEditor } from './ui/LookStep';
+import { LookRail, LookStage } from './ui/LookStep';
 import { ExportRail, ExportRunner } from './ui/ExportStep';
 import ImportModal from './ui/ImportModal';
 import { getTheme, normalizeTheme } from './renderer/themes.js';
@@ -272,6 +272,8 @@ export default function App() {
             <TitlesRail
               items={project.items}
               selectedId={selected?.id ?? null}
+              settings={project.settings}
+              onSettings={(settings) => setProject((p) => ({ ...p, settings }))}
               onSelect={setSelectedId}
               onAdd={addItem}
               onImport={() => setImportOpen(true)}
@@ -280,15 +282,13 @@ export default function App() {
           )}
           {step === 'look' && (
             <LookRail
-              themeId={project.themeId}
-              customThemes={project.customThemes}
-              fontsReady={fontsReady}
-              previewItem={previewSample}
-              onSelect={(id) => setProject((p) => ({ ...p, themeId: id }))}
+              theme={theme}
+              isCustom={isCustom}
+              onPatch={patchTheme}
               onDuplicate={duplicateTheme}
               onImportTheme={importTheme}
               onExportTheme={exportTheme}
-              onDeleteCustom={deleteCustomTheme}
+              showToast={showToast}
             />
           )}
           {step === 'export' && (
@@ -326,13 +326,14 @@ export default function App() {
             />
           )}
           {step === 'look' && (
-            <LookEditor
-              theme={theme}
-              isCustom={isCustom}
-              onPatch={patchTheme}
-              onDuplicate={duplicateTheme}
+            <LookStage
+              themeId={project.themeId}
+              customThemes={project.customThemes}
+              fontsReady={fontsReady}
+              previewItem={previewSample}
+              onSelect={(id) => setProject((p) => ({ ...p, themeId: id }))}
+              onDeleteCustom={deleteCustomTheme}
               onNext={() => setStep('export')}
-              showToast={showToast}
             />
           )}
           {step === 'export' && (
