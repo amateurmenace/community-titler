@@ -1,7 +1,7 @@
 export type ItemType = 'show' | 'speaker' | 'article';
 
 /** On-screen size. 'large' uses bigger type on more lines (never wider — the
- *  right third stays clear for captions); 'auto' picks it when a title would
+ *  lower-right corner stays clear for captions); 'auto' picks it when a title would
  *  otherwise get small. */
 export type ItemSize = 'auto' | 'standard' | 'large';
 
@@ -68,7 +68,7 @@ export interface ThemeDef {
     position: 'left' | 'center';
     marginX: number;
     marginY: number;
-    maxWidthFrac: number;
+    maxWidth: number;
     cornerRadius: number;
     scale: number;
   };

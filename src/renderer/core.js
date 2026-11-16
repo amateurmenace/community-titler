@@ -251,13 +251,13 @@ function computeLayout(ctx, item, theme, opts) {
   const barsX = x;
 
   // --- name bar content --------------------------------------------------
-  // Everything stays inside maxWidthFrac of the frame, whatever the size:
-  // closed captions sit in the right-hand third of the lower frame, so the
+  // Everything stays inside maxWidth of the frame, whatever the size:
+  // closed captions sit in the lower-right corner of the frame, so the
   // bars must never reach it. Large therefore grows down, not sideways —
   // bigger type and extra lines — for the long warrant articles that would
   // otherwise shrink into illegibility.
   // 'auto' tries standard first and goes large when the text came out small.
-  const frac = Math.max(0.3, Math.min(0.94, L.maxWidthFrac ?? 0.64));
+  const frac = Math.max(0.3, Math.min(0.94, L.maxWidth ?? 0.75));
   const measureBar = (large) => {
     const availW = Math.max(240 * u, W * frac - barsX);
     const BAR_H = (large ? 108 : 96) * u;
@@ -277,10 +277,10 @@ function computeLayout(ctx, item, theme, opts) {
     } else {
       family = F.text; weight = F.textWeight ?? 600;
       fit = fitLines(ctx, item.primary, {
-        family, weight, maxSize: (large ? 46 : 36) * u * kText, minSize: (large ? 26 : 24) * u * kText,
-        maxWidth: availW - PAD_X * 2, maxLines: large ? 5 : 3,
+        family, weight, maxSize: (large ? 40 : 36) * u * kText, minSize: (large ? 28 : 24) * u * kText,
+        maxWidth: availW - PAD_X * 2, maxLines: large ? 4 : 3,
       });
-      lineK = 1.2; floor = 35 * u * kText; // i.e. go large as soon as standard has to shrink
+      lineK = 1.2; floor = 30 * u * kText; // three lines down to 30px still read fine; below that go large
     }
     const lines = fit.lines.length ? fit.lines : [{ text: '', width: 0 }];
     const lineH = fit.size * lineK;
