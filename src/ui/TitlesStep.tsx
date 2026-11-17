@@ -1,3 +1,4 @@
+import { Slider } from './Slider';
 import type { DatePlace, ExportSettings, ItemSize, ItemType, TitleItem } from '../types';
 import { badgeNumber } from '../shared/csv.js';
 import { IArrowRight, ICopy, IDown, IDownload, IPlus, ISparkle, ITrash, IUp, IUpload } from './icons';
@@ -239,10 +240,10 @@ export function TitleEditor(props: {
           <label className="fld">
             <span>
               {item.type === 'speaker' ? 'Role or affiliation' : 'Second line'}
-              {item.type === 'show' && <span className="val">leave blank for station name + URL</span>}
+              {item.type === 'show' && <span className="val">leave blank for your station line</span>}
             </span>
             <input
-              placeholder={item.type === 'speaker' ? 'Town Moderator' : 'Brookline Interactive Group · brooklineinteractive.org'}
+              placeholder={item.type === 'speaker' ? 'Town Moderator' : 'Brookline Interactive Group'}
               value={item.secondary}
               onChange={(e) => onPatch({ secondary: e.target.value })}
             />
@@ -261,10 +262,7 @@ export function TitleEditor(props: {
             ))}
           </div>
         </div>
-        <label className="fld">
-          <span>Text size <span className="val">{Math.round((item.textScale ?? 1) * 100)}%</span></span>
-          <input type="range" min={0.8} max={1.4} step={0.05} value={item.textScale ?? 1} onChange={(e) => onPatch({ textScale: +e.target.value })} />
-        </label>
+        <Slider label="Text size" value={item.textScale ?? 1} onChange={(v) => onPatch({ textScale: v })} min={50} max={200} scale={100} unit="%" />
       </div>
       <p className="hint" style={{ marginTop: 8 }}>
         <b>Large</b> uses bigger type and extra lines, growing upward rather than sideways so the lower-right corner stays clear for captions — the right choice for long warrant articles.

@@ -7,7 +7,7 @@
 
 // Margins sit inside action-safe rather than title-safe (64px / 56px at
 // 1080p): modern TVs don't overscan, and the room goes to bigger type.
-const LAYOUT = { position: 'left', marginX: 64, marginY: 56, maxWidth: 0.75, cornerRadius: 14, scale: 1 };
+const LAYOUT = { position: 'left', marginX: 64, marginY: 56, maxWidth: 0.75, cornerRadius: 14, scale: 1, barHeight: 1 };
 const FLAGS = { stripe: true, shadow: true, uppercaseBadge: true, uppercaseTag: false, markOnAll: true, subBar: true, petitionerTab: true, petitionerKicker: true, urlTab: true };
 
 export const BUILT_IN_THEMES = [
@@ -182,6 +182,8 @@ export function normalizeTheme(t) {
   // (Large ignored it); looks saved with it take the current default width.
   delete l.maxWidthFrac;
   if (!(l.maxWidth > 0)) delete l.maxWidth;
+  if (!(l.scale > 0)) delete l.scale;
+  if (!(l.barHeight > 0)) delete l.barHeight;
   // Looks saved with the 2.0-2.2 default margins (never changed by hand)
   // follow the new defaults.
   if (l.marginX === 128 && l.marginY === 104) { delete l.marginX; delete l.marginY; }

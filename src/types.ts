@@ -71,7 +71,10 @@ export interface ThemeDef {
     marginY: number;
     maxWidth: number;
     cornerRadius: number;
+    /** overall size of the title, 1 = as designed for 1080p */
     scale: number;
+    /** thickness of the name and sub bars around type of the same size, 1 = default */
+    barHeight: number;
   };
   flags: {
     stripe: boolean;

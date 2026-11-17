@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { BUILT_IN_THEMES } from '../renderer/themes.js';
 import { addCustomFont, availableFontFamilies } from '../renderer/fonts';
 import type { Animation, MarkStyle, ThemeDef, TitleItem } from '../types';
+import { Slider } from './Slider';
 import ThemeThumb from './ThemeThumb';
 import { IArrowRight, IChevron, ICopy, IDownload, ITrash, IUpload } from './icons';
 
@@ -67,10 +68,7 @@ export function LookRail(props: {
   );
 
   const size = (label: string, val: number | undefined, set: (v: number) => void) => (
-    <label className="fld">
-      <span>{label} <span className="val">{Math.round((val ?? 1) * 100)}%</span></span>
-      <input type="range" min={0.7} max={1.5} step={0.05} value={val ?? 1} onChange={(e) => set(+e.target.value)} />
-    </label>
+    <Slider label={label} value={val ?? 1} onChange={set} min={50} max={200} scale={100} unit="%" />
   );
 
   const fontPick = (label: string, family: string, weight: number, setFamily: (v: string) => void, setWeight: (v: number) => void) => (
@@ -111,21 +109,12 @@ export function LookRail(props: {
         <summary>Placement &amp; size <IChevron className="chev" /></summary>
         <div className="body">
           <div className="grid2">
-            <label className="fld"><span>Max width <span className="val">{Math.round((L.maxWidth ?? 0.75) * 100)}%</span></span>
-              <input type="range" min={0.4} max={0.94} step={0.01} value={L.maxWidth ?? 0.75} onChange={(e) => patch((t) => { t.layout.maxWidth = +e.target.value; })} />
-            </label>
-            <label className="fld"><span>Scale <span className="val">{L.scale.toFixed(2)}×</span></span>
-              <input type="range" min={0.7} max={1.4} step={0.05} value={L.scale} onChange={(e) => patch((t) => { t.layout.scale = +e.target.value; })} />
-            </label>
-            <label className="fld"><span>Left margin <span className="val">{L.marginX}px</span></span>
-              <input type="range" min={24} max={300} step={4} value={L.marginX} onChange={(e) => patch((t) => { t.layout.marginX = +e.target.value; })} />
-            </label>
-            <label className="fld"><span>Bottom margin <span className="val">{L.marginY}px</span></span>
-              <input type="range" min={24} max={300} step={4} value={L.marginY} onChange={(e) => patch((t) => { t.layout.marginY = +e.target.value; })} />
-            </label>
-            <label className="fld"><span>Corner radius <span className="val">{L.cornerRadius}</span></span>
-              <input type="range" min={0} max={30} value={L.cornerRadius} onChange={(e) => patch((t) => { t.layout.cornerRadius = +e.target.value; })} />
-            </label>
+            <Slider label="Max width" value={L.maxWidth ?? 0.75} onChange={(v) => patch((t) => { t.layout.maxWidth = v; })} min={40} max={94} scale={100} unit="%" />
+            <Slider label="Scale" value={L.scale} onChange={(v) => patch((t) => { t.layout.scale = v; })} min={50} max={200} scale={100} unit="%" />
+            <Slider label="Bar height" value={L.barHeight ?? 1} onChange={(v) => patch((t) => { t.layout.barHeight = v; })} min={60} max={200} scale={100} unit="%" />
+            <Slider label="Corner radius" value={L.cornerRadius} onChange={(v) => patch((t) => { t.layout.cornerRadius = v; })} min={0} max={40} />
+            <Slider label="Left margin" value={L.marginX} onChange={(v) => patch((t) => { t.layout.marginX = v; })} min={0} max={400} unit="px" />
+            <Slider label="Bottom margin" value={L.marginY} onChange={(v) => patch((t) => { t.layout.marginY = v; })} min={0} max={400} unit="px" />
             <label className="fld"><span>Position</span>
               <select value={L.position} onChange={(e) => patch((t) => { t.layout.position = e.target.value as 'left' | 'center'; })}>
                 <option value="left">Lower left</option>
@@ -134,8 +123,9 @@ export function LookRail(props: {
             </label>
           </div>
           <p className="hint">
-            <b>Max width</b> keeps the lower-right of the frame clear for closed captions. Margins are measured at 1080p and default to 64 / 56 px — inside action-safe, not title-safe.
-            Type sizes are under <b>Type</b>; per-title Large and text-size nudges live in the Titles step.
+            <b>Max width</b> keeps the lower-right of the frame clear for closed captions. <b>Scale</b> sizes the whole title; <b>Bar height</b> thickens or slims the name and sub bars around type of the same size (a bar never gets shorter than its text).
+            Margins are measured at 1080p and default to 64 / 56 px — inside action-safe, not title-safe.
+            Type an exact number in any box; the arrow keys move a slider by one step, Shift + arrow by ten. Type sizes are under <b>Type</b>; per-title Large and text-size nudges live in the Titles step.
           </p>
         </div>
       </details>

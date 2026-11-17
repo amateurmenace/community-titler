@@ -221,6 +221,9 @@ function computeLayout(ctx, item, theme, opts) {
   const kSub = F.subSize ?? 1;
   const kLabel = F.labelSize ?? 1;
   const kBadge = F.badgeSize ?? 1;
+  // Bar height: the name and sub bars get thicker or slimmer around type of
+  // the same size (1 = default). A bar never gets shorter than its text.
+  const kH = Math.max(0.5, Math.min(2.5, L.barHeight ?? 1));
 
   const mx = (L.marginX ?? 128) * (H / 1080);
   const my = (L.marginY ?? 104) * (H / 1080);
@@ -286,7 +289,7 @@ function computeLayout(ctx, item, theme, opts) {
   const forcedLines = Math.min(4, String(item.primary ?? '').split('\n').filter((l) => l.trim()).length || 1);
   const measureBar = (large) => {
     const availW = Math.max(240 * u, W * frac - barsX);
-    const BAR_H = (large ? 108 : 96) * u;
+    const BAR_H = (large ? 108 : 96) * u * kH;
     let family = F.display, weight = F.displayWeight, fit, lineK, floor;
     if (type === 'speaker') {
       fit = fitLines(ctx, item.primary, {
@@ -310,7 +313,7 @@ function computeLayout(ctx, item, theme, opts) {
     }
     const lines = fit.lines.length ? fit.lines : [{ text: '', width: 0 }];
     const lineH = fit.size * lineK;
-    const padY = Math.max((large ? 26 : 22) * u, (BAR_H - lineH) / 2);
+    const padY = Math.max((large ? 26 : 22) * u * kH, (BAR_H - lineH) / 2);
     const barH = Math.max(BAR_H, padY * 2 + lines.length * lineH);
     const textW = Math.max(...lines.map((l) => l.width));
     const barW = Math.max(220 * u, textW + PAD_X * 2);
@@ -351,7 +354,7 @@ function computeLayout(ctx, item, theme, opts) {
   if (upperSub) subText = subText.toUpperCase();
   let sub = null;
   if ((subText || dateSlot) && FL.subBar !== false) {
-    const SUB_H = (large ? 52 : 46) * u * Math.max(0.8, Math.min(1.5, kSub));
+    const SUB_H = (large ? 52 : 46) * u * Math.max(0.8, Math.min(1.5, kSub)) * kH;
     const tracking = upperSub ? 1.4 * u : 0;
     const subMax = availW - SUB_PAD_X * 2;
     const maxSize = (large ? 28 : 26) * u * kSub;
