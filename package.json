@@ -2,7 +2,7 @@
   "name": "community-titler",
   "productName": "Community Titler",
   "private": true,
-  "version": "2.4.0",
+  "version": "2.5.0",
   "type": "module",
   "main": "electron/main.cjs",
   "description": "Animated lower thirds with transparent alpha for community media stations. Type or import your titles, pick a look, export ProRes 4444 / WebM / PNG for OBS and key/fill playout. Web app, desktop app (Windows + macOS) and CLI.",
